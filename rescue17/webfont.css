@@ -1,0 +1,6 @@
+@font-face {
+ font-family: 'Major Snafu';
+ font-style: normal;
+ font-weight: 400;
+ src: local('Major Snafu'), url('major.ttf') format('truetype');
+}

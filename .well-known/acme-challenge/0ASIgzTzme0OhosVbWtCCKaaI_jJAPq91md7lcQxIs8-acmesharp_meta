@@ -1,0 +1,6 @@
+{
+  "$type": "ACMESharp.Providers.IIS.IisChallengeHandler+IisChallengeHandlerMeta, ACMESharp.Providers.IIS",
+  "WasAdmin": true,
+  "SkippedLocalWebConfig": false,
+  "DirsCreated": []
+}
