@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MusicBand Studio Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="studio-shell">
+    <header class="studio-topbar">
+      <section class="brand-panel" aria-labelledby="studioTitle">
+        <div class="brand-copy">
+          <h1 id="studioTitle">MusicBand Studio<span class="pro-badge">Pro</span></h1>
+          <div class="meter-cluster" aria-label="Output meters">
+            <div class="level-meter"><span id="meterL" class="level-fill"></span></div>
+            <div class="level-meter"><span id="meterR" class="level-fill"></span></div>
+          </div>
+        </div>
+        <div class="signal-strip" aria-label="Audio waveform monitor">
+          <canvas id="visualizer" width="900" height="200"></canvas>
+        </div>
+      </section>
+
+      <section class="transport-panel" aria-label="Transport controls">
+        <div class="status-row">
+          <span class="status-light" aria-hidden="true"></span>
+          <span id="statusText">Standby</span>
+          <span class="position-readout" id="positionText" aria-live="off">1 : 1</span>
+        </div>
+
+        <div class="transport-actions">
+          <button class="command-button primary" id="audioStart" type="button">
+            <i data-lucide="power"></i>
+            <span>Start Audio</span>
+          </button>
+          <button class="command-button" id="playStop" type="button" disabled>
+            <i data-lucide="play"></i>
+            <span>Play</span>
+          </button>
+          <button class="command-button ghost" id="panic" type="button" disabled>
+            <i data-lucide="square"></i>
+            <span>Stop</span>
+          </button>
+          <button class="command-button record" id="recordToggle" type="button" aria-pressed="false">
+            <i data-lucide="circle"></i>
+            <span>Record</span>
+          </button>
+          <button class="command-button" id="metronomeToggle" type="button" disabled aria-pressed="false">
+            <i data-lucide="alarm-clock"></i>
+            <span>Click</span>
+          </button>
+          <button class="command-button" id="clearLoop" type="button" disabled>
+            <i data-lucide="eraser"></i>
+            <span>Clear</span>
+          </button>
+        </div>
+
+        <div class="control-stack">
+          <label class="range-control" for="tempo">
+            <span>Tempo</span>
+            <input id="tempo" type="range" min="60" max="200" value="128">
+            <output id="tempoValue" for="tempo">128 BPM</output>
+          </label>
+          <label class="range-control" for="masterVolume">
+            <span>Master</span>
+            <input id="masterVolume" type="range" min="-40" max="3" value="-6">
+            <output id="masterValue" for="masterVolume">-6 dB</output>
+          </label>
+          <label class="range-control" for="octaveShift">
+            <span>Octave</span>
+            <input id="octaveShift" type="range" min="-2" max="2" value="0" step="1">
+            <output id="octaveValue" for="octaveShift">0</output>
+          </label>
+        </div>
+      </section>
+    </header>
+
+    <section class="studio-deck">
+      <aside class="rack-panel" aria-label="Instrument rack">
+        <div class="accordion-block" data-accordion="instruments">
+          <div class="panel-heading accordion-toggle" role="button" tabindex="0" aria-expanded="true">
+            <span>Band Instruments</span>
+            <span class="heading-meta">
+              <span class="tiny-label">Real Samples</span>
+              <i data-lucide="chevron-down" class="accordion-chevron"></i>
+            </span>
+          </div>
+          <div class="panel-body">
+            <label class="chip-select rack-style" for="genMusicStyle">
+              <span>Music Style</span>
+              <select id="genMusicStyle">
+                <option value="pop" selected>Pop</option>
+                <option value="edm">EDM / Dance</option>
+                <option value="electronic">Electronic</option>
+                <option value="techno">Techno</option>
+                <option value="hiphop">Hip-Hop</option>
+                <option value="rnb">R&amp;B / Soul</option>
+                <option value="rock">Rock</option>
+                <option value="funk">Funk</option>
+                <option value="blues">Blues</option>
+                <option value="jazz">Jazz</option>
+                <option value="latin">Latin</option>
+                <option value="reggae">Reggae</option>
+                <option value="folk">Folk</option>
+                <option value="ambient">Ambient</option>
+              </select>
+            </label>
+            <label class="chip-select rack-style" for="genSoundType">
+              <span>Sound Type</span>
+              <select id="genSoundType">
+                <option value="sampled" selected>Sampled (real)</option>
+                <option value="electronic">Electronic</option>
+                <option value="techno">Techno</option>
+                <option value="synth">Synth Pad</option>
+                <option value="retro">Retro 8-bit</option>
+                <option value="bass">Deep Bass</option>
+              </select>
+            </label>
+            <div class="instrument-grid" id="instrumentGrid"></div>
+          </div>
+        </div>
+
+        <div class="accordion-block preset-block" data-accordion="presets">
+          <div class="panel-heading accordion-toggle" role="button" tabindex="0" aria-expanded="true">
+            <span>Song Presets</span>
+            <span class="heading-meta">
+              <span class="tiny-label">Patterns</span>
+              <i data-lucide="chevron-down" class="accordion-chevron"></i>
+            </span>
+          </div>
+          <div class="panel-body">
+            <div class="preset-buttons" id="presetButtons"></div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="performance-panel" data-accordion="selected" aria-label="Performance area">
+        <div class="performance-header">
+          <div class="perf-title accordion-toggle" role="button" tabindex="0" aria-expanded="true">
+            <span class="tiny-label">Selected</span>
+            <h2 id="selectedInstrument">Studio Piano</h2>
+            <i data-lucide="chevron-down" class="accordion-chevron"></i>
+          </div>
+          <div class="perf-toggles">
+            <button class="chip-toggle" id="arpToggle" type="button" aria-pressed="false">
+              <i data-lucide="waypoints"></i><span>Arp</span>
+            </button>
+            <button class="chip-toggle" id="recordSampleToggle" type="button" aria-pressed="false">
+              <i data-lucide="audio-lines"></i><span>Rec Sample</span>
+            </button>
+            <button class="chip-toggle" id="recordMic" type="button" aria-pressed="false">
+              <i data-lucide="mic"></i><span>Record MIC</span>
+            </button>
+            <button class="chip-toggle" id="generateMusic" type="button">
+              <i data-lucide="wand-2"></i><span>Generate Music</span>
+            </button>
+            <button class="chip-toggle" id="testSample" type="button" aria-pressed="false">
+              <i data-lucide="play"></i><span>Play Sample</span>
+            </button>
+            <label class="chip-select sample-stretch" id="sampleStretchWrap" for="sampleStretch" hidden>
+              <span>Stretch</span>
+              <input id="sampleStretch" type="range" min="0.25" max="4" step="0.05" value="1">
+              <output id="sampleStretchValue" for="sampleStretch">1.00x</output>
+            </label>
+            <label class="chip-select" for="arpPattern">
+              <span>Mode</span>
+              <select id="arpPattern">
+                <option value="up">Up</option>
+                <option value="down">Down</option>
+                <option value="upDown">Up/Down</option>
+                <option value="random">Random</option>
+              </select>
+            </label>
+            <label class="chip-select" for="arpRate">
+              <span>Rate</span>
+              <select id="arpRate">
+                <option value="8n">1/8</option>
+                <option value="8t">1/8T</option>
+                <option value="16n" selected>1/16</option>
+                <option value="16t">1/16T</option>
+              </select>
+            </label>
+            <label class="chip-select" for="scaleSelect">
+              <span>Scale</span>
+              <select id="scaleSelect">
+                <option value="chromatic">Chromatic</option>
+                <option value="major" selected>Major</option>
+                <option value="minor">Minor</option>
+                <option value="pentatonic">Pentatonic</option>
+                <option value="blues">Blues</option>
+                <option value="dorian">Dorian</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <div class="pad-grid" id="padGrid" aria-label="Playable pads"></div>
+
+          <div class="keyboard-wrap" aria-label="Piano keyboard">
+            <div class="keyboard-header">
+              <span class="tiny-label">Keyboard</span>
+              <span class="tiny-label muted">Keys A–K &amp; W–U map to notes</span>
+            </div>
+            <div class="piano" id="piano"></div>
+            <button class="mini-button stop-playing" id="stopPlaying" type="button">
+              <i data-lucide="square"></i><span>Stop Playing</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="fx-mixer-deck">
+      <section class="fx-panel" data-accordion="fx" aria-label="Effects rack">
+        <div class="panel-heading accordion-toggle" role="button" tabindex="0" aria-expanded="true">
+          <span>Effects Rack</span>
+          <span class="heading-meta">
+            <span class="tiny-label">Master FX</span>
+            <i data-lucide="chevron-down" class="accordion-chevron"></i>
+          </span>
+        </div>
+        <div class="panel-body">
+        <div class="fx-grid">
+          <label class="knob-control" for="reverbMix"><span>Reverb</span>
+            <input id="reverbMix" type="range" min="0" max="0.8" step="0.01" value="0.18">
+            <output id="reverbValue">18%</output>
+          </label>
+          <label class="knob-control" for="delayMix"><span>Delay</span>
+            <input id="delayMix" type="range" min="0" max="0.6" step="0.01" value="0.12">
+            <output id="delayValue">12%</output>
+          </label>
+          <label class="knob-control" for="delayFeedback"><span>Feedback</span>
+            <input id="delayFeedback" type="range" min="0" max="0.75" step="0.01" value="0.24">
+            <output id="delayFeedbackValue">24%</output>
+          </label>
+          <label class="knob-control" for="chorusMix"><span>Chorus</span>
+            <input id="chorusMix" type="range" min="0" max="1" step="0.01" value="0">
+            <output id="chorusValue">0%</output>
+          </label>
+          <label class="knob-control" for="distortionMix"><span>Drive</span>
+            <input id="distortionMix" type="range" min="0" max="1" step="0.01" value="0">
+            <output id="distortionValue">0%</output>
+          </label>
+          <label class="knob-control" for="filterFreq"><span>Filter</span>
+            <input id="filterFreq" type="range" min="200" max="18000" step="10" value="18000">
+            <output id="filterValue">18k</output>
+          </label>
+          <label class="knob-control" for="bitcrushMix"><span>Crush</span>
+            <input id="bitcrushMix" type="range" min="0" max="1" step="0.01" value="0">
+            <output id="bitcrushValue">0%</output>
+          </label>
+          <label class="knob-control" for="swingMix"><span>Swing</span>
+            <input id="swingMix" type="range" min="0" max="0.5" step="0.01" value="0.34">
+            <output id="swingValue">34%</output>
+          </label>
+        </div>
+        </div>
+      </section>
+
+      <section class="mixer-panel" data-accordion="mixer" aria-label="Track mixer">
+        <div class="panel-heading accordion-toggle" role="button" tabindex="0" aria-expanded="true">
+          <span>Mixer</span>
+          <span class="heading-meta">
+            <span class="tiny-label">Per Track</span>
+            <i data-lucide="chevron-down" class="accordion-chevron"></i>
+          </span>
+        </div>
+        <div class="panel-body">
+          <div class="mixer-grid" id="mixerGrid"></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="sequencer-panel" data-accordion="sequencer" aria-label="Step sequencer">
+      <div class="panel-heading">
+        <span class="accordion-toggle seq-title" role="button" tabindex="0" aria-expanded="true">
+          <span>Loop Sequencer</span>
+          <i data-lucide="chevron-down" class="accordion-chevron"></i>
+        </span>
+      </div>
+      <div class="panel-body">
+        <div class="sequencer-tools">
+          <label class="chip-select" for="genreSelect">
+            <span>Style</span>
+            <select id="genreSelect">
+              <option value="random" selected>🎲 Surprise Me</option>
+              <optgroup label="Pop &amp; Dance">
+                <option value="contemporary-pop">Contemporary Pop</option>
+                <option value="synthpop">Synthpop / Electropop</option>
+                <option value="kpop">K-Pop / J-Pop</option>
+                <option value="edm">EDM (House / Techno)</option>
+              </optgroup>
+              <optgroup label="Hip-Hop &amp; R&amp;B">
+                <option value="hiphop">Hip-Hop / Rap</option>
+                <option value="rnb">Contemporary R&amp;B</option>
+                <option value="soul">Soul / Neo-Soul</option>
+              </optgroup>
+              <optgroup label="Rock &amp; Metal">
+                <option value="classic-rock">Classic Rock</option>
+                <option value="alt-indie">Alternative / Indie</option>
+                <option value="heavy-metal">Heavy Metal</option>
+                <option value="punk">Punk Rock</option>
+              </optgroup>
+              <optgroup label="Electronic &amp; Ambient">
+                <option value="ambient">Ambient / Chillout</option>
+                <option value="lofi">Lo-Fi Beats</option>
+                <option value="synthwave">Synthwave</option>
+              </optgroup>
+              <optgroup label="Traditional &amp; Roots">
+                <option value="country">Country</option>
+                <option value="folk">Folk / Acoustic</option>
+                <option value="blues">Blues</option>
+              </optgroup>
+              <optgroup label="Jazz &amp; Classical">
+                <option value="classical">Classical</option>
+                <option value="jazz">Jazz</option>
+              </optgroup>
+              <optgroup label="Global &amp; Regional">
+                <option value="latin">Latin</option>
+                <option value="afrobeats">Afrobeats</option>
+                <option value="reggae">Reggae / Dancehall</option>
+              </optgroup>
+            </select>
+          </label>
+          <label class="chip-select" for="songLength">
+            <span>Length</span>
+            <select id="songLength">
+              <option value="auto" selected>Auto</option>
+              <option value="8">8 bars</option>
+              <option value="16">16 bars</option>
+              <option value="24">24 bars</option>
+              <option value="32">32 bars</option>
+              <option value="48">48 bars</option>
+            </select>
+          </label>
+          <button class="mini-button primary" id="randomizeSeq" type="button">
+            <i data-lucide="shuffle"></i><span>Randomize Song</span>
+          </button>
+          <button class="chip-toggle" id="vocalsToggle" type="button" aria-pressed="true">
+            <i data-lucide="mic"></i><span>Vocals</span>
+          </button>
+          <span class="song-text-group">
+            <label class="chip-field" for="songLyrics">
+              <span>Song Text</span>
+              <input id="songLyrics" type="text" placeholder="Song lyrics — separate lines with |">
+            </label>
+            <button class="mini-button" id="testSongVoice" type="button">
+              <i data-lucide="volume-2"></i><span>Test Voice</span>
+            </button>
+          </span>
+          <span class="tiny-label genre-tag" id="randomGenre">16 Steps</span>
+        </div>
+
+        <div class="sequencer-builder">
+        <label class="chip-select" for="addInstrument">
+          <span>Instrument</span>
+          <select id="addInstrument"></select>
+        </label>
+        <label class="chip-select" for="voiceSelect">
+          <span>Voice</span>
+          <select id="voiceSelect">
+            <option value="auto" selected>Auto Voice</option>
+            <option value="random">Random Mix</option>
+          </select>
+        </label>
+        <label class="chip-select" for="voiceStyle">
+          <span>Delivery</span>
+          <select id="voiceStyle">
+            <option value="natural" selected>Natural</option>
+            <option value="rap">Rap</option>
+            <option value="sing">Singing</option>
+            <option value="croon">Crooner</option>
+            <option value="opera">Opera</option>
+            <option value="soft">Soft / Breathy</option>
+            <option value="powerful">Powerful Belt</option>
+            <option value="announcer">Announcer</option>
+            <option value="robot">Robot</option>
+            <option value="whisper">Whisper</option>
+            <option value="deep">Deep</option>
+            <option value="monster">Monster</option>
+            <option value="baby">Baby</option>
+            <option value="chipmunk">Chipmunk</option>
+          </select>
+        </label>
+        <div class="voice-curve" aria-label="Voice sine sound curve">
+          <span class="tiny-label">Voice Curve</span>
+          <canvas id="voiceCurve" width="260" height="54"></canvas>
+          <label class="voice-range" for="voiceCurveDepth">
+            <span>Depth</span>
+            <input id="voiceCurveDepth" type="range" min="0" max="1" step="0.05" value="0">
+            <output id="voiceCurveDepthValue" for="voiceCurveDepth">0%</output>
+          </label>
+          <label class="voice-range" for="voiceCurveRate">
+            <span>Rate</span>
+            <input id="voiceCurveRate" type="range" min="0.1" max="2" step="0.1" value="0.5">
+            <output id="voiceCurveRateValue" for="voiceCurveRate">0.5</output>
+          </label>
+        </div>
+        <label class="chip-select" for="addNote" id="noteSelectWrap">
+          <span>Note</span>
+          <select id="addNote"></select>
+        </label>
+        <label class="chip-field" for="lyricsInput" id="lyricsWrap">
+          <span>Lyrics</span>
+          <input id="lyricsInput" type="text" placeholder="Type your own lyrics — separate lines with |">
+        </label>
+        <button class="mini-button" id="testVoice" type="button">
+          <i data-lucide="volume-2"></i><span>Test Voice</span>
+        </button>
+        <span class="vocal-settings" id="vocalSettings">
+          <label class="voice-range" for="vocalRate">
+            <span>Speed</span>
+            <input id="vocalRate" type="range" min="0.5" max="1.6" step="0.05" value="0.95">
+            <output id="vocalRateValue">0.95x</output>
+          </label>
+          <label class="voice-range" for="vocalPitch">
+            <span>Pitch</span>
+            <input id="vocalPitch" type="range" min="0" max="2" step="0.05" value="1">
+            <output id="vocalPitchValue">1.0</output>
+          </label>
+          <label class="voice-range" for="vocalVolume">
+            <span>Vol</span>
+            <input id="vocalVolume" type="range" min="0" max="1" step="0.05" value="0.95">
+            <output id="vocalVolumeValue">95%</output>
+          </label>
+          <label class="voice-range" for="vocalVariation">
+            <span>Human</span>
+            <input id="vocalVariation" type="range" min="0" max="0.6" step="0.05" value="0.15">
+            <output id="vocalVariationValue">15%</output>
+          </label>
+          <label class="voice-range" for="vocalVibrato">
+            <span>Vibrato</span>
+            <input id="vocalVibrato" type="range" min="0" max="1" step="0.05" value="0">
+            <output id="vocalVibratoValue">0%</output>
+          </label>
+        </span>
+        <span class="add-actions">
+          <button class="mini-button primary" id="addTrack" type="button">
+            <i data-lucide="plus"></i><span>Add to Loop</span>
+          </button>
+        </span>
+        <span class="builder-sep" aria-hidden="true"></span>
+        <button class="mini-button" id="addBars" type="button">
+          <i data-lucide="plus"></i><span>Add 4 Bars</span>
+        </button>
+        <button class="mini-button" id="removeBars" type="button">
+          <i data-lucide="minus"></i><span>Remove 4</span>
+        </button>
+        <label class="chip-field bars-field" for="barsInput">
+          <span>Bars</span>
+          <input id="barsInput" type="number" min="2" max="64" step="1" value="16">
+        </label>
+        <span class="tiny-label" id="barCount">16 bars</span>
+        <span class="tiny-label muted" id="bandHint">Randomize builds full songs across the timeline</span>
+      </div>
+
+      <div class="sample-studio" aria-label="Sample studio">
+        <span class="tiny-label">Sample Studio</span>
+        <button class="mini-button" id="uploadSample" type="button">
+          <i data-lucide="upload"></i><span>Upload WAV</span>
+        </button>
+        <input id="sampleFileInput" type="file" accept="audio/wav,audio/x-wav,audio/wave,.wav" hidden>
+        <span class="tiny-label muted">Upload a WAV or capture with Rec Sample — samples save to your browser</span>
+      </div>
+
+      <div class="sequencer-scroll">
+        <div class="step-labels" id="stepLabels" aria-hidden="true"></div>
+        <div class="sequence-grid" id="sequenceGrid"></div>
+      </div>
+
+      <div class="sequencer-transport">
+        <button class="command-button primary" id="seqPlay" type="button">
+          <i data-lucide="play"></i><span>Play</span>
+        </button>
+        <button class="command-button ghost" id="seqStop" type="button">
+          <i data-lucide="square"></i><span>Stop</span>
+        </button>
+        <button class="command-button record" id="seqRecord" type="button" aria-pressed="false">
+          <i data-lucide="circle"></i><span>Record</span>
+        </button>
+        <button class="command-button" id="seqClear" type="button">
+          <i data-lucide="eraser"></i><span>Clear</span>
+        </button>
+      </div>
+
+      <div class="transport-extra control-stack" aria-label="Tempo, master and octave">
+        <label class="range-control" for="tempoBottom">
+          <span>Tempo</span>
+          <input id="tempoBottom" type="range" min="60" max="200" value="128">
+          <output id="tempoBottomValue" for="tempoBottom">128 BPM</output>
+        </label>
+        <label class="range-control" for="masterBottom">
+          <span>Master</span>
+          <input id="masterBottom" type="range" min="-40" max="3" value="-6">
+          <output id="masterBottomValue" for="masterBottom">-6 dB</output>
+        </label>
+        <label class="range-control" for="octaveBottom">
+          <span>Octave</span>
+          <input id="octaveBottom" type="range" min="-2" max="2" value="0" step="1">
+          <output id="octaveBottomValue" for="octaveBottom">0</output>
+        </label>
+      </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="downloadModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="downloadTitle">
+      <div class="modal-head">
+        <h3 id="downloadTitle">Download Recording</h3>
+        <button class="modal-close" id="downloadClose" type="button" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+      <p class="modal-sub" id="downloadStatus">Rendering your track&hellip;</p>
+      <div class="modal-actions">
+        <button class="command-button primary" id="downloadWav" type="button" disabled>
+          <i data-lucide="download"></i><span>Download .WAV</span>
+        </button>
+        <button class="command-button" id="downloadMp3" type="button" disabled>
+          <i data-lucide="download"></i><span>Download .MP3</span>
+        </button>
+      </div>
+      <p class="modal-note">MP3 is encoded in your browser with lamejs. The mix includes the song plus your recorded performance.</p>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="renameModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="renameTitle">
+      <div class="modal-head">
+        <h3 id="renameTitle">Rename Sample</h3>
+        <button class="modal-close" id="renameClose" type="button" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+      <p class="modal-sub">Give your recorded sample a name.</p>
+      <label class="modal-field" for="renameInput">
+        <span>Sample name</span>
+        <input id="renameInput" type="text" maxlength="24" placeholder="e.g. My Loop" autocomplete="off">
+      </label>
+      <div class="modal-actions">
+        <button class="command-button primary" id="renameSave" type="button">
+          <i data-lucide="check"></i><span>Save Name</span>
+        </button>
+        <button class="command-button" id="renameCancel" type="button">
+          <i data-lucide="x"></i><span>Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script type="module">
+    // Scribbletune (music pattern generator) — load as an ES module and expose it globally
+    // so the classic app.js script can use it for generating melodic samples.
+    (async () => {
+      const sources = [
+        "https://esm.sh/scribbletune@5.5.5",
+        "https://cdn.jsdelivr.net/npm/scribbletune@5.5.5/+esm"
+      ];
+      for (const src of sources) {
+        try {
+          const mod = await import(src);
+          window.scribbletune = (mod && mod.scale) ? mod : (mod.default || mod);
+          window.dispatchEvent(new CustomEvent("scribbletune-ready"));
+          return;
+        } catch (err) {
+          console.warn("Scribbletune failed to load from", src, err);
+        }
+      }
+    })();
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
