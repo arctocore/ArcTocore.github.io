@@ -1499,6 +1499,30 @@ select {
   height: 80%;
 }
 
+.region-body {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  z-index: 4;
+  cursor: grab;
+  touch-action: none;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--track-color) 38%, transparent);
+}
+
+.region-body:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--track-color) 66%, transparent);
+}
+
+.region-body.is-grabbing {
+  cursor: grabbing;
+}
+
+.region-handle-left,
+.region-handle-right {
+  cursor: col-resize;
+}
+
 @media (max-width: 1200px) {
   .studio-topbar,
   .studio-deck,

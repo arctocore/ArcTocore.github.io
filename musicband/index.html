@@ -146,9 +146,6 @@
             <i data-lucide="chevron-down" class="accordion-chevron"></i>
           </div>
           <div class="perf-toggles">
-            <button class="chip-toggle" id="arpToggle" type="button" aria-pressed="false">
-              <i data-lucide="waypoints"></i><span>Arp</span>
-            </button>
             <button class="chip-toggle" id="recordSampleToggle" type="button" aria-pressed="false">
               <i data-lucide="audio-lines"></i><span>Rec Sample</span>
             </button>
@@ -161,28 +158,13 @@
             <button class="chip-toggle" id="testSample" type="button" aria-pressed="false">
               <i data-lucide="play"></i><span>Play Sample</span>
             </button>
+            <button class="chip-toggle" id="exportSample" type="button">
+              <i data-lucide="download"></i><span>Export Sample</span>
+            </button>
             <label class="chip-select sample-stretch" id="sampleStretchWrap" for="sampleStretch" hidden>
               <span>Stretch</span>
               <input id="sampleStretch" type="range" min="0.25" max="4" step="0.05" value="1">
               <output id="sampleStretchValue" for="sampleStretch">1.00x</output>
-            </label>
-            <label class="chip-select" for="arpPattern">
-              <span>Mode</span>
-              <select id="arpPattern">
-                <option value="up">Up</option>
-                <option value="down">Down</option>
-                <option value="upDown">Up/Down</option>
-                <option value="random">Random</option>
-              </select>
-            </label>
-            <label class="chip-select" for="arpRate">
-              <span>Rate</span>
-              <select id="arpRate">
-                <option value="8n">1/8</option>
-                <option value="8t">1/8T</option>
-                <option value="16n" selected>1/16</option>
-                <option value="16t">1/16T</option>
-              </select>
             </label>
             <label class="chip-select" for="scaleSelect">
               <span>Scale</span>

@@ -262,14 +262,11 @@ const elements = {
   padGrid: document.querySelector("#padGrid"),
   piano: document.querySelector("#piano"),
   stopPlaying: document.querySelector("#stopPlaying"),
-  arpToggle: document.querySelector("#arpToggle"),
   recordSampleToggle: document.querySelector("#recordSampleToggle"),
   recordMic: document.querySelector("#recordMic"),
   generateMusic: document.querySelector("#generateMusic"),
   genMusicStyle: document.querySelector("#genMusicStyle"),
   genSoundType: document.querySelector("#genSoundType"),
-  arpPattern: document.querySelector("#arpPattern"),
-  arpRate: document.querySelector("#arpRate"),
   scaleSelect: document.querySelector("#scaleSelect"),
   mixerGrid: document.querySelector("#mixerGrid"),
   stepLabels: document.querySelector("#stepLabels"),
@@ -316,6 +313,7 @@ const elements = {
   seqClear: document.querySelector("#seqClear"),
   downloadModal: document.querySelector("#downloadModal"),
   downloadClose: document.querySelector("#downloadClose"),
+  downloadTitle: document.querySelector("#downloadTitle"),
   downloadStatus: document.querySelector("#downloadStatus"),
   downloadWav: document.querySelector("#downloadWav"),
   downloadMp3: document.querySelector("#downloadMp3"),
@@ -339,6 +337,7 @@ const elements = {
   octaveBottom: document.querySelector("#octaveBottom"),
   octaveBottomValue: document.querySelector("#octaveBottomValue"),
   testSample: document.querySelector("#testSample"),
+  exportSample: document.querySelector("#exportSample"),
   sampleStretch: document.querySelector("#sampleStretch"),
   sampleStretchValue: document.querySelector("#sampleStretchValue"),
   sampleStretchWrap: document.querySelector("#sampleStretchWrap"),
@@ -374,7 +373,6 @@ const state = {
   renameTarget: null,
   sampleTimeout: null,
   metronomeOn: false,
-  arpOn: false,
   vocalsOn: true,
   voice: null,
   voiceMode: "auto",
@@ -399,14 +397,14 @@ const state = {
   repeatId: null,
   nodes: {},
   instruments: {},
+  soundTypeSynths: {},
+  soundTypeDrums: null,
   channels: {},
   channelSettings: {},
   soloed: new Set(),
-  arpNotes: [],
-  arpIndex: 0,
-  arpDirection: 1,
   recordedEvents: [],
   recordingBuffer: null,
+  downloadBaseName: null,
   activeKeyNotes: new Map(),
   seqTracks: [],
   stepColumns: [],
@@ -566,7 +564,6 @@ function setupEvents() {
   if (elements.exportWav) {
     elements.exportWav.addEventListener("click", exportWav);
   }
-  elements.arpToggle.addEventListener("click", toggleArp);
   if (elements.stopPlaying) {
     elements.stopPlaying.addEventListener("click", stopAllPlaying);
   }
@@ -578,6 +575,12 @@ function setupEvents() {
   }
   if (elements.generateMusic) {
     elements.generateMusic.addEventListener("click", generateMusicForSelected);
+  }
+  if (elements.genSoundType) {
+    elements.genSoundType.addEventListener("change", onSoundTypeChange);
+  }
+  if (elements.exportSample) {
+    elements.exportSample.addEventListener("click", exportSelectedSample);
   }
   elements.addTrack.addEventListener("click", addTrackFromBuilder);
   if (elements.testVoice) {
@@ -755,7 +758,7 @@ function setupEvents() {
   if (elements.downloadWav) {
     elements.downloadWav.addEventListener("click", () => {
       if (state.recordingBuffer) {
-        downloadAudio(state.recordingBuffer, "wav", "musicband-recording");
+        downloadAudio(state.recordingBuffer, "wav", state.downloadBaseName || "musicband-recording");
       }
     });
   }
@@ -765,7 +768,7 @@ function setupEvents() {
         return;
       }
       try {
-        downloadAudio(state.recordingBuffer, "mp3", "musicband-recording");
+        downloadAudio(state.recordingBuffer, "mp3", state.downloadBaseName || "musicband-recording");
       } catch (error) {
         console.error(error);
         elements.downloadStatus.textContent = "MP3 export failed.";
@@ -1320,10 +1323,6 @@ function triggerPad(definition, pad) {
     return;
   }
   const notes = pad.notes.map(applyOctave);
-  if (state.arpOn) {
-    setArpNotes(notes);
-    return;
-  }
   playInstrument(definition.id, notes, definition.duration, undefined, 0.78);
   recordEvent({ kind: "instrument", instrument: definition.id, notes, duration: definition.duration });
 }
@@ -1404,10 +1403,6 @@ function pressPianoKey(note) {
     speakLine("La", 1);
     return;
   }
-  if (state.arpOn) {
-    setArpNotes([shifted]);
-    return;
-  }
   // Sustain: stop the previous note, then hold this one until another key or Stop Playing.
   stopSustainedNote();
   const voice = getInstrumentVoice(definition.id);
@@ -1463,7 +1458,6 @@ function stopSustainedNote() {
 // Stop Playing button beneath the piano: stop the held note (and any speech).
 function stopAllPlaying() {
   stopSustainedNote();
-  state.arpNotes = [];
   if (window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
@@ -1497,21 +1491,6 @@ function handleKeyUp(event) {
   if (mapping) {
     releasePianoKey(mapping.note);
   }
-}
-
-/* ---------- Arpeggiator ---------- */
-function toggleArp() {
-  state.arpOn = !state.arpOn;
-  elements.arpToggle.setAttribute("aria-pressed", String(state.arpOn));
-  if (!state.arpOn) {
-    state.arpNotes = [];
-  }
-}
-
-function setArpNotes(notes) {
-  state.arpNotes = notes.slice();
-  state.arpIndex = 0;
-  state.arpDirection = 1;
 }
 
 /* ---------- Record your own sample (microphone) ---------- */
@@ -1869,6 +1848,59 @@ function updateTestSampleButton() {
   refreshIcons();
 }
 
+// Export the selected (or most recent) recorded sample to WAV or MP3 via the download modal.
+function exportSelectedSample() {
+  let id = state.selectedInstrument;
+  let def = getInstrumentDef(id);
+  const hasContent = (sid) => sid && (state.sampleBuffers[sid] || state.sampleSamplers[sid] || state.pendingSampleBuffers[sid]);
+  if (!def || !def.recorded || !hasContent(id)) {
+    id = lastRecordedSampleId();
+    def = id ? getInstrumentDef(id) : null;
+  }
+  if (!def || !hasContent(id)) {
+    elements.statusText.textContent = "No recorded sample to export \u2014 record or generate one first";
+    return;
+  }
+  if (!state.sampleBuffers[id] && state.pendingSampleBuffers[id]) {
+    try {
+      buildSampleSampler(id, state.pendingSampleBuffers[id], { autoRename: false, select: false });
+      delete state.pendingSampleBuffers[id];
+    } catch (error) { /* ignore */ }
+  }
+  const toneBuffer = state.sampleBuffers[id];
+  const audioBuffer = toneBuffer && typeof toneBuffer.get === "function" ? toneBuffer.get() : toneBuffer;
+  if (!audioBuffer) {
+    elements.statusText.textContent = "Sample not ready to export yet";
+    return;
+  }
+  openSampleDownloadModal(audioBuffer, def.name || "sample");
+}
+
+function openSampleDownloadModal(audioBuffer, name) {
+  if (!elements.downloadModal) {
+    return;
+  }
+  state.recordingBuffer = audioBuffer;
+  state.downloadBaseName = sanitizeFileName(name);
+  if (elements.downloadTitle) {
+    elements.downloadTitle.textContent = "Export Sample";
+  }
+  const seconds = Math.round((audioBuffer.duration || 0) * 10) / 10;
+  elements.downloadStatus.textContent = `Ready \u2014 ${name} (${seconds}s). Choose a format.`;
+  elements.downloadModal.hidden = false;
+  elements.downloadWav.disabled = false;
+  elements.downloadMp3.disabled = !window.lamejs;
+  if (!window.lamejs) {
+    elements.downloadMp3.title = "MP3 encoder not available";
+  }
+  refreshIcons();
+}
+
+function sanitizeFileName(name) {
+  const clean = String(name || "sample").replace(/[^a-z0-9\-_]+/gi, "-").replace(/^-+|-+$/g, "");
+  return clean || "sample";
+}
+
 function sampleSlotIds() {
   return instrumentDefs.filter((definition) => definition.recorded).map((definition) => definition.id);
 }
@@ -2127,6 +2159,17 @@ const GEN_SOUND_TYPES = {
   bass: { osc: "fatsawtooth", envelope: { attack: 0.02, decay: 0.2, sustain: 0.7, release: 0.5 }, dist: 0.1, volume: -6 }
 };
 
+// Per-sound-type SYNTHESIZED drum kits. When #genSoundType != "sampled", the Drum Kit is
+// synthesized (electronic drum-machine style) instead of the real acoustic samples, so each
+// sound type gives the kit its own character.
+const DRUM_SYNTH_KITS = {
+  electronic: { osc: "sine", pitchDecay: 0.03, octaves: 8, kickDecay: 0.42, snareType: "white", snareDecay: 0.16, hatType: "white", hatDecay: 0.045, hatFreq: 9000, dist: 0.12 },
+  techno: { osc: "square", pitchDecay: 0.02, octaves: 6, kickDecay: 0.5, snareType: "white", snareDecay: 0.2, hatType: "white", hatDecay: 0.05, hatFreq: 8000, dist: 0.4 },
+  synth: { osc: "triangle", pitchDecay: 0.05, octaves: 5, kickDecay: 0.5, snareType: "pink", snareDecay: 0.22, hatType: "pink", hatDecay: 0.06, hatFreq: 7000, dist: 0 },
+  retro: { osc: "square", pitchDecay: 0.008, octaves: 10, kickDecay: 0.3, snareType: "white", snareDecay: 0.1, hatType: "white", hatDecay: 0.03, hatFreq: 10000, dist: 0.05 },
+  bass: { osc: "sine", pitchDecay: 0.06, octaves: 4, kickDecay: 0.7, snareType: "brown", snareDecay: 0.24, hatType: "white", hatDecay: 0.05, hatFreq: 6000, dist: 0.1 }
+};
+
 // Build a repeating musical phrase for a melodic instrument (used as a region's content).
 function buildMelodicPhrase(instrumentId, rootNote, phraseBars, style) {
   const bars = phraseBars || 4;
@@ -2160,26 +2203,28 @@ function buildMelodicPhrase(instrumentId, rootNote, phraseBars, style) {
 // across the region's current length.
 function retileRegion(track) {
   const total = totalSteps();
-  const len = Math.min(track.regionLen || total, total);
+  const startPos = Math.max(0, Math.min(track.regionStart || 0, Math.max(0, total - 1)));
+  const len = Math.min(track.regionLen || total, total - startPos);
+  const offset = track.regionOffset || 0;
   const pattern = new Array(total).fill(0);
   const stepNotes = {};
   const globalTempo = Number(elements.tempo.value) || 120;
   const scale = track.tempo ? globalTempo / track.tempo : 1; // <1 = faster clip, >1 = slower
   if (track.kind === "sample") {
     const unit = Math.max(1, Math.round(sampleRegionSteps(track.instrumentId) * scale));
-    for (let start = 0; start < len; start += unit) {
-      pattern[start] = 1;
+    for (let i = 0; i < len; i += unit) {
+      pattern[startPos + i] = 1;
     }
   } else if (track.phrase) {
     const phrase = scale === 1 ? track.phrase : scalePhrase(track.phrase, scale);
     const phraseLen = phrase.len || STEPS_PER_BAR;
     for (let i = 0; i < len; i += 1) {
-      const rel = i % phraseLen;
+      const rel = (((i + offset) % phraseLen) + phraseLen) % phraseLen;
       if (phrase.notes && phrase.notes[rel]) {
-        pattern[i] = 1;
-        stepNotes[i] = phrase.notes[rel].slice();
+        pattern[startPos + i] = 1;
+        stepNotes[startPos + i] = phrase.notes[rel].slice();
       } else if (phrase.stepsSet && phrase.stepsSet.has(rel)) {
-        pattern[i] = 1;
+        pattern[startPos + i] = 1;
       }
     }
   }
@@ -2210,12 +2255,7 @@ function scalePhrase(phrase, scale) {
 }
 
 function regionMinLen(track) {
-  if (track.kind === "sample") {
-    return Math.max(1, sampleRegionSteps(track.instrumentId));
-  }
-  if (track.phrase) {
-    return track.phrase.len;
-  }
+  // GarageBand-style: clips can be trimmed down to a single bar (content repeats/tiles).
   return STEPS_PER_BAR;
 }
 
@@ -2842,10 +2882,11 @@ function renderSequencer() {
 
     let regionCells = null;
     if (track.region) {
-      const len = Math.min(track.regionLen || total, total);
+      const startPos = Math.max(0, Math.min(track.regionStart || 0, total));
+      const len = Math.min(track.regionLen || total, total - startPos);
       regionCells = new Set();
       for (let s = 0; s < len; s += 1) {
-        regionCells.add(s);
+        regionCells.add(startPos + s);
       }
     }
 
@@ -2872,13 +2913,35 @@ function renderSequencer() {
 
     if (track.region) {
       row.style.position = "relative";
-      const len = Math.min(track.regionLen || total, total);
-      const handle = document.createElement("div");
-      handle.className = "region-handle";
-      handle.title = "Drag to change the clip length";
-      handle.style.left = `${128 + len * STEP_W - 6}px`;
-      handle.addEventListener("pointerdown", (event) => startRegionDrag(event, track, row));
-      row.append(handle);
+      const startPos = Math.max(0, Math.min(track.regionStart || 0, total));
+      const len = Math.min(track.regionLen || total, total - startPos);
+      const leftPx = 128 + startPos * STEP_W;
+      const widthPx = len * STEP_W;
+
+      // Draggable clip body (move the whole region along the timeline).
+      const body = document.createElement("div");
+      body.className = "region-body";
+      body.title = "Drag to move the clip \u00b7 drag either edge to trim";
+      body.style.left = `${leftPx}px`;
+      body.style.width = `${widthPx}px`;
+      body.addEventListener("pointerdown", (event) => startRegionMove(event, track, row));
+      row.append(body);
+
+      // Left trim handle.
+      const leftHandle = document.createElement("div");
+      leftHandle.className = "region-handle region-handle-left";
+      leftHandle.title = "Drag to trim the clip start";
+      leftHandle.style.left = `${leftPx - 6}px`;
+      leftHandle.addEventListener("pointerdown", (event) => startRegionResize(event, track, row, "left"));
+      row.append(leftHandle);
+
+      // Right trim / extend handle.
+      const rightHandle = document.createElement("div");
+      rightHandle.className = "region-handle region-handle-right";
+      rightHandle.title = "Drag to change the clip length";
+      rightHandle.style.left = `${leftPx + widthPx - 6}px`;
+      rightHandle.addEventListener("pointerdown", (event) => startRegionResize(event, track, row, "right"));
+      row.append(rightHandle);
     }
 
     gridFrag.append(row);
@@ -2907,65 +2970,138 @@ function onSeqGridClick(event) {
   cell.classList.toggle("is-active", Boolean(track.pattern[step]));
 }
 
-// Drag the right edge of a region to change how many bars of music it spans.
-function startRegionDrag(event, track, row) {
+// GarageBand-style clip editing: drag either edge to trim/extend, drag the body to move.
+function startRegionResize(event, track, row, edge) {
   event.preventDefault();
   event.stopPropagation();
   const handle = event.currentTarget;
   const startX = event.clientX;
-  const startLen = track.regionLen || totalSteps();
+  const startPos0 = Math.max(0, track.regionStart || 0);
+  const startLen0 = track.regionLen || totalSteps();
+  const startOffset0 = track.regionOffset || 0;
   const minLen = regionMinLen(track);
   const maxLen = MAX_BARS * STEPS_PER_BAR;
-  let previewLen = startLen;
+  let preview = { start: startPos0, len: startLen0, offset: startOffset0 };
   try { handle.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ }
 
   const onMove = (moveEvent) => {
-    const dx = moveEvent.clientX - startX;
-    let steps = startLen + Math.round(dx / STEP_W);
-    steps = Math.round(steps / STEPS_PER_BAR) * STEPS_PER_BAR;
-    steps = Math.max(minLen, Math.min(maxLen, steps));
-    if (steps === previewLen) {
+    const dSteps = Math.round((moveEvent.clientX - startX) / STEP_W);
+    const dBars = Math.round(dSteps / STEPS_PER_BAR) * STEPS_PER_BAR;
+    let start = startPos0;
+    let len = startLen0;
+    let offset = startOffset0;
+    if (edge === "right") {
+      len = Math.max(minLen, Math.min(maxLen, startLen0 + dBars));
+    } else {
+      let delta = dBars;
+      delta = Math.max(-startPos0, delta);          // start can't go below bar 0
+      delta = Math.min(delta, startLen0 - minLen);  // keep at least the min length
+      start = startPos0 + delta;
+      len = startLen0 - delta;
+      offset = startOffset0 + delta;                // keep content anchored in time
+    }
+    if (start === preview.start && len === preview.len) {
       return;
     }
-    previewLen = steps;
-    const shown = Math.min(steps, totalSteps());
-    handle.style.left = `${128 + shown * STEP_W - 6}px`;
-    updateRegionPreview(row, shown);
-    const bars = Math.round(steps / STEPS_PER_BAR);
-    elements.statusText.textContent = `Clip length: ${bars} bar${bars === 1 ? "" : "s"}`;
+    preview = { start, len, offset };
+    updateRegionPreviewBlock(row, start, len);
+    const bars = Math.round(len / STEPS_PER_BAR);
+    elements.statusText.textContent = `Clip: ${bars} bar${bars === 1 ? "" : "s"}`;
   };
   const onUp = () => {
     handle.removeEventListener("pointermove", onMove);
     handle.removeEventListener("pointerup", onUp);
     handle.removeEventListener("pointercancel", onUp);
     try { handle.releasePointerCapture(event.pointerId); } catch (error) { /* ignore */ }
-    resizeRegion(track, previewLen);
+    commitRegion(track, preview.start, preview.len, preview.offset);
   };
   handle.addEventListener("pointermove", onMove);
   handle.addEventListener("pointerup", onUp);
   handle.addEventListener("pointercancel", onUp);
 }
 
-function updateRegionPreview(row, shownLen) {
-  const cells = row.querySelectorAll(".step-cell");
-  cells.forEach((cell, index) => {
-    cell.classList.toggle("in-region", index < shownLen);
-  });
+// Drag the clip body to slide the whole region along the timeline (content moves with it).
+function startRegionMove(event, track, row) {
+  event.preventDefault();
+  event.stopPropagation();
+  const body = event.currentTarget;
+  const startX = event.clientX;
+  const startPos0 = Math.max(0, track.regionStart || 0);
+  const len = Math.min(track.regionLen || totalSteps(), totalSteps());
+  const offset = track.regionOffset || 0;
+  const maxStart = MAX_BARS * STEPS_PER_BAR - len;
+  let previewStart = startPos0;
+  try { body.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+  body.classList.add("is-grabbing");
+
+  const onMove = (moveEvent) => {
+    const dSteps = Math.round((moveEvent.clientX - startX) / STEP_W);
+    const dBars = Math.round(dSteps / STEPS_PER_BAR) * STEPS_PER_BAR;
+    const start = Math.max(0, Math.min(maxStart, startPos0 + dBars));
+    if (start === previewStart) {
+      return;
+    }
+    previewStart = start;
+    updateRegionPreviewBlock(row, start, len);
+    const bar = Math.round(start / STEPS_PER_BAR) + 1;
+    elements.statusText.textContent = `Clip start: bar ${bar}`;
+  };
+  const onUp = () => {
+    body.removeEventListener("pointermove", onMove);
+    body.removeEventListener("pointerup", onUp);
+    body.removeEventListener("pointercancel", onUp);
+    try { body.releasePointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+    body.classList.remove("is-grabbing");
+    commitRegion(track, previewStart, len, offset);
+  };
+  body.addEventListener("pointermove", onMove);
+  body.addEventListener("pointerup", onUp);
+  body.addEventListener("pointercancel", onUp);
 }
 
-function resizeRegion(track, newLen) {
-  const minLen = regionMinLen(track);
-  let len = Math.round((newLen || minLen) / STEPS_PER_BAR) * STEPS_PER_BAR;
-  len = Math.max(minLen, Math.min(MAX_BARS * STEPS_PER_BAR, len));
-  const neededBars = Math.ceil(len / STEPS_PER_BAR);
-  if (neededBars > state.bars) {
-    setBars(neededBars); // grow the timeline so the clip has room
+// Live drag feedback: move the block + handles and repaint the in-region cells.
+function updateRegionPreviewBlock(row, start, len) {
+  const cells = row.querySelectorAll(".step-cell");
+  cells.forEach((cell, index) => {
+    cell.classList.toggle("in-region", index >= start && index < start + len);
+  });
+  const leftPx = 128 + start * STEP_W;
+  const widthPx = len * STEP_W;
+  const body = row.querySelector(".region-body");
+  const leftHandle = row.querySelector(".region-handle-left");
+  const rightHandle = row.querySelector(".region-handle-right");
+  if (body) {
+    body.style.left = `${leftPx}px`;
+    body.style.width = `${widthPx}px`;
   }
-  track.regionLen = Math.min(len, totalSteps());
+  if (leftHandle) {
+    leftHandle.style.left = `${leftPx - 6}px`;
+  }
+  if (rightHandle) {
+    rightHandle.style.left = `${leftPx + widthPx - 6}px`;
+  }
+}
+
+// Snap to bars, grow the song if the clip runs past the end, and re-tile the region.
+function commitRegion(track, start, len, offset) {
+  const minLen = regionMinLen(track);
+  let startPos = Math.max(0, Math.round((start || 0) / STEPS_PER_BAR) * STEPS_PER_BAR);
+  len = Math.max(minLen, Math.round((len || minLen) / STEPS_PER_BAR) * STEPS_PER_BAR);
+  len = Math.min(len, MAX_BARS * STEPS_PER_BAR);
+  const neededBars = Math.ceil((startPos + len) / STEPS_PER_BAR);
+  if (neededBars > state.bars) {
+    setBars(neededBars); // drag past the end grows the song
+  }
+  const total = totalSteps();
+  startPos = Math.min(startPos, Math.max(0, total - minLen));
+  track.regionStart = startPos;
+  track.regionLen = Math.min(len, total - startPos);
+  track.regionOffset = offset || 0;
   retileRegion(track);
   renderSequencer();
   const bars = Math.round(track.regionLen / STEPS_PER_BAR);
-  elements.statusText.textContent = `Clip set to ${bars} bar${bars === 1 ? "" : "s"}`;
+  const startBar = Math.round(track.regionStart / STEPS_PER_BAR) + 1;
+  elements.statusText.textContent = `Clip: ${bars} bar${bars === 1 ? "" : "s"} @ bar ${startBar}`;
 }
 
 // Re-tile every region (e.g. after the global tempo changes) so each keeps its own tempo.
@@ -3610,8 +3746,13 @@ function setBars(bars) {
         });
       }
     }
-    if (track.region && (track.regionLen || 0) > length) {
-      track.regionLen = length;
+    if (track.region) {
+      const startPos = Math.max(0, Math.min(track.regionStart || 0, Math.max(0, length - STEPS_PER_BAR)));
+      track.regionStart = startPos;
+      if (startPos + (track.regionLen || 0) > length) {
+        track.regionLen = Math.max(STEPS_PER_BAR, length - startPos);
+      }
+      retileRegion(track);
     }
   });
   if (state.nextStep >= length) {
@@ -3732,10 +3873,6 @@ function onTick(time) {
     }
   });
 
-  if (state.arpOn && state.arpNotes.length > 0 && isArpStep(step)) {
-    playArpNote(time);
-  }
-
   if (state.metronomeOn) {
     const isDownbeat = step % 4 === 0;
     state.nodes.metronome.triggerAttackRelease(isDownbeat ? "C5" : "C4", "32n", time, isDownbeat ? 0.9 : 0.5);
@@ -3752,42 +3889,6 @@ function onTick(time) {
   }, time);
 
   state.nextStep = (step + 1) % total;
-}
-
-function isArpStep(step) {
-  const rate = elements.arpRate.value;
-  if (rate === "8n" || rate === "8t") {
-    return step % 2 === 0;
-  }
-  return true;
-}
-
-function playArpNote(time) {
-  const notes = state.arpNotes;
-  const pattern = elements.arpPattern.value;
-  let index = state.arpIndex;
-
-  if (pattern === "down") {
-    index = notes.length - 1 - (state.arpIndex % notes.length);
-  } else if (pattern === "random") {
-    index = Math.floor(Math.random() * notes.length);
-  } else if (pattern === "upDown") {
-    index = state.arpIndex % notes.length;
-    if (state.arpDirection < 0) {
-      index = notes.length - 1 - index;
-    }
-  } else {
-    index = state.arpIndex % notes.length;
-  }
-
-  const note = notes[Math.max(0, Math.min(notes.length - 1, index))];
-  const definition = getInstrumentDef(state.selectedInstrument);
-  playInstrument(definition.id, [note], "16n", time, 0.7);
-
-  state.arpIndex += 1;
-  if (pattern === "upDown" && state.arpIndex % notes.length === 0) {
-    state.arpDirection *= -1;
-  }
 }
 
 /* ---------- Recording ---------- */
@@ -3850,6 +3951,10 @@ function getInstrumentVoice(instrumentId) {
   if (def.recorded) {
     return state.sampleSamplers[instrumentId] || null;
   }
+  const soundVoice = getSoundTypeVoice(instrumentId);
+  if (soundVoice) {
+    return soundVoice;
+  }
   const entry = ensureInstrument(instrumentId);
   if (!entry) {
     return null;
@@ -3863,6 +3968,161 @@ function getInstrumentVoice(instrumentId) {
   return null;
 }
 
+// ---- Sound Type: optionally re-voice melodic instruments with a synth timbre ----
+// The #genSoundType dropdown ("Sampled (real)" by default) lets the player swap the real
+// sampled tone of any melodic instrument for a synth timbre (electronic/techno/synth/retro/
+// bass). "sampled" keeps the real Tone.Sampler. Drums, recorded samples and vocals are
+// unaffected. The chosen synth is cached per instrument and routed through that instrument's
+// mixer channel so volume/FX still apply.
+function currentSoundType() {
+  return elements.genSoundType ? elements.genSoundType.value : "sampled";
+}
+
+function getSoundTypeVoice(instrumentId) {
+  const def = getInstrumentDef(instrumentId);
+  if (!def || !def.sample || def.sample.kind !== "melodic") {
+    return null;
+  }
+  const soundType = currentSoundType();
+  const soundDef = GEN_SOUND_TYPES[soundType];
+  if (!soundDef) {
+    return null;
+  }
+  const channel = state.channels[instrumentId];
+  if (!channel) {
+    return null;
+  }
+  const cached = state.soundTypeSynths[instrumentId];
+  if (cached && cached.type === soundType) {
+    return cached.synth;
+  }
+  if (cached) {
+    disposeSoundTypeVoice(cached);
+  }
+  let dest = channel;
+  let dist = null;
+  if (soundDef.dist > 0) {
+    dist = new Tone.Distortion({ distortion: soundDef.dist, wet: 0.5 }).connect(channel);
+    dest = dist;
+  }
+  const synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: soundDef.osc }, envelope: soundDef.envelope }).connect(dest);
+  synth.volume.value = soundDef.volume;
+  state.soundTypeSynths[instrumentId] = { type: soundType, synth, dist };
+  return synth;
+}
+
+function disposeSoundTypeVoice(entry) {
+  if (!entry) {
+    return;
+  }
+  try { entry.synth.dispose(); } catch (error) { /* ignore */ }
+  if (entry.dist) {
+    try { entry.dist.dispose(); } catch (error) { /* ignore */ }
+  }
+}
+
+function disposeSoundTypeSynths() {
+  Object.keys(state.soundTypeSynths).forEach((id) => {
+    disposeSoundTypeVoice(state.soundTypeSynths[id]);
+    delete state.soundTypeSynths[id];
+  });
+  if (state.soundTypeDrums) {
+    disposeDrumKit(state.soundTypeDrums.kit);
+    state.soundTypeDrums = null;
+  }
+}
+
+// Build a synthesized drum kit for a sound type, routed through the drums mixer channel.
+function buildSynthDrumKit(soundType, channel) {
+  const k = DRUM_SYNTH_KITS[soundType];
+  if (!k) {
+    return null;
+  }
+  let dest = channel;
+  let dist = null;
+  if (k.dist > 0) {
+    dist = new Tone.Distortion({ distortion: k.dist, wet: 0.5 }).connect(channel);
+    dest = dist;
+  }
+  const kick = new Tone.MembraneSynth({ pitchDecay: k.pitchDecay, octaves: k.octaves, oscillator: { type: k.osc }, envelope: { attack: 0.001, decay: k.kickDecay, sustain: 0.02, release: 0.18 } }).connect(dest);
+  const snare = new Tone.NoiseSynth({ noise: { type: k.snareType }, envelope: { attack: 0.001, decay: k.snareDecay, sustain: 0, release: 0.08 } }).connect(dest);
+  const hatFilter = new Tone.Filter({ type: "highpass", frequency: k.hatFreq }).connect(dest);
+  const hat = new Tone.NoiseSynth({ noise: { type: k.hatType }, envelope: { attack: 0.001, decay: k.hatDecay, sustain: 0, release: 0.02 } }).connect(hatFilter);
+  const tom = new Tone.MembraneSynth({ pitchDecay: k.pitchDecay * 1.5, octaves: Math.max(3, k.octaves - 2), oscillator: { type: k.osc }, envelope: { attack: 0.001, decay: k.kickDecay * 0.7, sustain: 0.03, release: 0.16 } }).connect(dest);
+  // Per-voice monotonic time guard so rapid/overlapping hits never schedule out of order.
+  const last = new Map();
+  const safeTime = (key, t) => {
+    const at = t ?? Tone.now();
+    const prev = last.get(key);
+    const val = prev === undefined ? at : Math.max(at, prev + 0.002);
+    last.set(key, val);
+    return val;
+  };
+  const trigger = (piece, time, velocity) => {
+    if (piece === "kick") {
+      kick.triggerAttackRelease("C1", "8n", safeTime("k", time), velocity);
+    } else if (piece === "snare") {
+      snare.triggerAttackRelease("16n", safeTime("s", time), velocity);
+    } else if (piece === "hihat") {
+      hat.triggerAttackRelease("16n", safeTime("h", time), velocity);
+    } else {
+      const pitch = piece === "tom3" ? "G1" : piece === "tom2" ? "A1" : "C2";
+      tom.triggerAttackRelease(pitch, safeTime("t", time), velocity);
+    }
+  };
+  return { trigger, nodes: [kick, snare, hatFilter, hat, tom, dist].filter(Boolean) };
+}
+
+// Return the synthesized drum kit for the current sound type, or null for "sampled" (real samples).
+function getSoundTypeDrumKit() {
+  const soundType = currentSoundType();
+  if (!DRUM_SYNTH_KITS[soundType]) {
+    return null;
+  }
+  const channel = state.channels.drums;
+  if (!channel) {
+    return null;
+  }
+  if (state.soundTypeDrums && state.soundTypeDrums.type === soundType) {
+    return state.soundTypeDrums.kit;
+  }
+  if (state.soundTypeDrums) {
+    disposeDrumKit(state.soundTypeDrums.kit);
+  }
+  const kit = buildSynthDrumKit(soundType, channel);
+  state.soundTypeDrums = { type: soundType, kit };
+  return kit;
+}
+
+function disposeDrumKit(kit) {
+  if (!kit || !kit.nodes) {
+    return;
+  }
+  kit.nodes.forEach((node) => {
+    try { node.dispose(); } catch (error) { /* ignore */ }
+  });
+}
+
+// Rebuild voices on change and give immediate audible feedback on the selected instrument.
+function onSoundTypeChange() {
+  disposeSoundTypeSynths();
+  const select = elements.genSoundType;
+  const label = select && select.selectedOptions[0] ? select.selectedOptions[0].textContent : currentSoundType();
+  elements.statusText.textContent = `Sound: ${label}`;
+  const def = getInstrumentDef(state.selectedInstrument);
+  if (state.ready && !state.isRecording && def) {
+    if (def.sample && def.sample.kind === "melodic") {
+      playInstrument(def.id, ["C4", "E4", "G4"], "8n", undefined, 0.7);
+    } else if (def.id === "drums") {
+      const now = Tone.now() + 0.05;
+      playDrum("kick", now, 0.9);
+      playDrum("hihat", now + 0.14, 0.7);
+      playDrum("snare", now + 0.28, 0.85);
+      playDrum("hihat", now + 0.42, 0.7);
+    }
+  }
+}
+
 function playInstrument(instrumentId, notes, duration, time, velocity) {
   const def = getInstrumentDef(instrumentId);
   if (def.recorded) {
@@ -3871,6 +4131,12 @@ function playInstrument(instrumentId, notes, duration, time, velocity) {
       const list = Array.isArray(notes) ? notes : [notes];
       sampler.triggerAttackRelease(list, duration, time ?? Tone.now(), velocity);
     }
+    return;
+  }
+  const voice = getSoundTypeVoice(instrumentId);
+  if (voice) {
+    const list = Array.isArray(notes) ? notes : [notes];
+    voice.triggerAttackRelease(list, duration, time ?? Tone.now(), velocity);
     return;
   }
   const entry = ensureInstrument(instrumentId);
@@ -3889,11 +4155,16 @@ function playInstrument(instrumentId, notes, duration, time, velocity) {
 }
 
 function playDrum(piece, time, velocity) {
+  const eventTime = time ?? Tone.now();
+  const kit = getSoundTypeDrumKit();
+  if (kit) {
+    kit.trigger(piece, eventTime, velocity);
+    return;
+  }
   const entry = ensureInstrument("drums");
   if (!entry) {
     return;
   }
-  const eventTime = time ?? Tone.now();
   if (entry.useFallback && entry.fallback) {
     entry.fallback(piece, eventTime, velocity);
     return;
@@ -4151,6 +4422,10 @@ async function renderCompositionBuffer(includeRecorded) {
 function openDownloadModal() {
   if (!state.ready || !state.recordedEvents.length || !elements.downloadModal) {
     return;
+  }
+  state.downloadBaseName = "musicband-recording";
+  if (elements.downloadTitle) {
+    elements.downloadTitle.textContent = "Download Recording";
   }
   elements.downloadModal.hidden = false;
   elements.downloadStatus.textContent = "Rendering your track…";
