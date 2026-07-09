@@ -232,6 +232,9 @@ const elements = {
   recordToggle: document.querySelector("#recordToggle"),
   metronomeToggle: document.querySelector("#metronomeToggle"),
   clearLoop: document.querySelector("#clearLoop"),
+  saveProject: document.querySelector("#saveProject"),
+  loadProject: document.querySelector("#loadProject"),
+  projectFileInput: document.querySelector("#projectFileInput"),
   statusText: document.querySelector("#statusText"),
   positionText: document.querySelector("#positionText"),
   tempo: document.querySelector("#tempo"),
@@ -267,6 +270,7 @@ const elements = {
   generateMusic: document.querySelector("#generateMusic"),
   genMusicStyle: document.querySelector("#genMusicStyle"),
   genSoundType: document.querySelector("#genSoundType"),
+  genSoundTypeSeq: document.querySelector("#genSoundTypeSeq"),
   scaleSelect: document.querySelector("#scaleSelect"),
   mixerGrid: document.querySelector("#mixerGrid"),
   stepLabels: document.querySelector("#stepLabels"),
@@ -332,6 +336,8 @@ const elements = {
   meterR: document.querySelector("#meterR"),
   tempoBottom: document.querySelector("#tempoBottom"),
   tempoBottomValue: document.querySelector("#tempoBottomValue"),
+  timelineSpeed: document.querySelector("#timelineSpeed"),
+  timelineSpeedValue: document.querySelector("#timelineSpeedValue"),
   masterBottom: document.querySelector("#masterBottom"),
   masterBottomValue: document.querySelector("#masterBottomValue"),
   octaveBottom: document.querySelector("#octaveBottom"),
@@ -557,6 +563,15 @@ function setupEvents() {
   elements.recordToggle.addEventListener("click", toggleRecording);
   elements.metronomeToggle.addEventListener("click", toggleMetronome);
   elements.clearLoop.addEventListener("click", clearRecording);
+  if (elements.saveProject) {
+    elements.saveProject.addEventListener("click", saveProject);
+  }
+  if (elements.loadProject) {
+    elements.loadProject.addEventListener("click", triggerLoadProject);
+  }
+  if (elements.projectFileInput) {
+    elements.projectFileInput.addEventListener("change", onProjectFileChosen);
+  }
   elements.randomizeSeq.addEventListener("click", randomizeSequencer);
   if (elements.clearSeq) {
     elements.clearSeq.addEventListener("click", clearSequencer);
@@ -578,6 +593,14 @@ function setupEvents() {
   }
   if (elements.genSoundType) {
     elements.genSoundType.addEventListener("change", onSoundTypeChange);
+  }
+  if (elements.genSoundTypeSeq) {
+    elements.genSoundTypeSeq.addEventListener("change", () => {
+      if (elements.genSoundType) {
+        elements.genSoundType.value = elements.genSoundTypeSeq.value;
+      }
+      onSoundTypeChange();
+    });
   }
   if (elements.exportSample) {
     elements.exportSample.addEventListener("click", exportSelectedSample);
@@ -821,6 +844,16 @@ function setupEvents() {
     });
     elements.tempoBottom.addEventListener("change", retileAllRegions);
   }
+  if (elements.timelineSpeed) {
+    elements.timelineSpeed.addEventListener("input", () => {
+      elements.tempo.value = elements.timelineSpeed.value;
+      updateControlLabels();
+      if (state.ready) {
+        Tone.Transport.bpm.rampTo(Number(elements.tempo.value), 0.08);
+      }
+    });
+    elements.timelineSpeed.addEventListener("change", retileAllRegions);
+  }
   if (elements.masterBottom) {
     elements.masterBottom.addEventListener("input", () => {
       elements.masterVolume.value = elements.masterBottom.value;
@@ -916,6 +949,10 @@ async function startAudio() {
   elements.statusText.textContent = "Starting";
   await Tone.start();
   buildAudioGraph();
+  // Fade the master up from silence so the engine starts without an audible click/pop.
+  if (state.nodes.master) {
+    state.nodes.master.volume.rampTo(Number(elements.masterVolume.value), 0.35, Tone.now() + 0.03);
+  }
   Tone.Transport.bpm.value = Number(elements.tempo.value);
   Tone.Transport.swing = Number(elements.swingMix.value);
   Tone.Transport.swingSubdivision = "16n";
@@ -944,7 +981,7 @@ async function startAudio() {
 
 function buildAudioGraph() {
   const nodes = state.nodes;
-  nodes.master = new Tone.Volume(Number(elements.masterVolume.value));
+  nodes.master = new Tone.Volume(-60); // start silent; startAudio ramps up to avoid a startup pop
   nodes.limiter = new Tone.Limiter(-1);
   nodes.meter = new Tone.Meter({ channelCount: 2, normalRange: true });
   nodes.analyser = new Tone.Analyser("waveform", 512);
@@ -1236,6 +1273,125 @@ function applyPreset(preset) {
     preloadInstruments();
   }
   renderSequencer();
+}
+
+/* ---------- Save / Load project ---------- */
+// Effect sliders included in a saved project (id on the element -> project.fx key).
+function projectFxInputs() {
+  return {
+    reverb: elements.reverbMix, delay: elements.delayMix, delayFeedback: elements.delayFeedback,
+    chorus: elements.chorusMix, distortion: elements.distortionMix, filter: elements.filterFreq,
+    bitcrush: elements.bitcrushMix, swing: elements.swingMix
+  };
+}
+
+// Serialize the whole arrangement + settings to JSON (Sets in region phrases become {__set:[...]}).
+function serializeProject() {
+  const fx = {};
+  const inputs = projectFxInputs();
+  Object.keys(inputs).forEach((key) => { if (inputs[key]) { fx[key] = inputs[key].value; } });
+  const project = {
+    app: "MusicBand Studio Pro",
+    version: 1,
+    savedAt: new Date().toISOString(),
+    bars: state.bars,
+    tempo: elements.tempo.value,
+    master: elements.masterVolume.value,
+    octave: elements.octaveShift.value,
+    scale: state.scale,
+    selectedInstrument: state.selectedInstrument,
+    soundType: elements.genSoundType ? elements.genSoundType.value : "sampled",
+    musicStyle: elements.genMusicStyle ? elements.genMusicStyle.value : "pop",
+    fx,
+    tracks: state.seqTracks
+  };
+  return JSON.stringify(project, (key, value) => (value instanceof Set ? { __set: Array.from(value) } : value), 2);
+}
+
+function saveProject() {
+  try {
+    const json = serializeProject();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `musicband-project-${stamp}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    elements.statusText.textContent = "Project saved";
+  } catch (error) {
+    console.error(error);
+    elements.statusText.textContent = "Save failed";
+  }
+}
+
+function triggerLoadProject() {
+  if (elements.projectFileInput) {
+    elements.projectFileInput.value = "";
+    elements.projectFileInput.click();
+  }
+}
+
+function onProjectFileChosen(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) {
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const project = JSON.parse(String(reader.result), (key, value) => (
+        value && typeof value === "object" && Array.isArray(value.__set) ? new Set(value.__set) : value
+      ));
+      applyProject(project);
+    } catch (error) {
+      console.error(error);
+      elements.statusText.textContent = "Load failed — not a valid project file";
+    }
+  };
+  reader.onerror = () => { elements.statusText.textContent = "Could not read the file"; };
+  reader.readAsText(file);
+}
+
+// Restore a parsed project into the app (tracks + all settings).
+function applyProject(project) {
+  if (!project || !Array.isArray(project.tracks)) {
+    elements.statusText.textContent = "Load failed — no tracks in file";
+    return;
+  }
+  if (project.tempo != null) { elements.tempo.value = String(project.tempo); }
+  if (project.master != null) { elements.masterVolume.value = String(project.master); }
+  if (project.octave != null) { elements.octaveShift.value = String(project.octave); state.octaveOffset = Number(project.octave) || 0; }
+  if (project.scale) { state.scale = project.scale; if (elements.scaleSelect) { elements.scaleSelect.value = project.scale; } }
+  if (project.soundType && elements.genSoundType) { elements.genSoundType.value = project.soundType; }
+  if (project.musicStyle && elements.genMusicStyle) { elements.genMusicStyle.value = project.musicStyle; }
+  const inputs = projectFxInputs();
+  const fx = project.fx || {};
+  Object.keys(inputs).forEach((key) => { if (inputs[key] && fx[key] != null) { inputs[key].value = String(fx[key]); } });
+
+  state.bars = Math.max(2, Math.min(MAX_BARS, Number(project.bars) || DEFAULT_BARS));
+  state.seqTracks = Array.isArray(project.tracks) ? project.tracks : [];
+  seqUid = state.seqTracks.reduce((max, track) => Math.max(max, Number(track.uid) || 0), 0) + 1;
+
+  if (elements.genSoundTypeSeq && elements.genSoundType) { elements.genSoundTypeSeq.value = elements.genSoundType.value; }
+  updateBarCount();
+  updateControlLabels();
+  if (state.ready) {
+    Tone.Transport.bpm.rampTo(Number(elements.tempo.value), 0.1);
+    Tone.Transport.swing = Number(elements.swingMix.value);
+    if (state.nodes.master) { state.nodes.master.volume.rampTo(Number(elements.masterVolume.value), 0.1); }
+    Object.values(inputs).forEach((input) => { if (input) { input.dispatchEvent(new Event("input")); } });
+    disposeSoundTypeSynths();
+    preloadInstruments();
+  }
+  const selId = project.selectedInstrument;
+  selectInstrument(getInstrumentDef(selId) && instrumentDefs.some((d) => d.id === selId) ? selId : state.selectedInstrument);
+  renderSequencer();
+  renderMixer();
+  elements.statusText.textContent = "Project loaded";
 }
 
 /* ---------- Pads ---------- */
@@ -2156,8 +2312,38 @@ const GEN_SOUND_TYPES = {
   techno: { osc: "square", envelope: { attack: 0.005, decay: 0.16, sustain: 0.35, release: 0.24 }, dist: 0.35, volume: -10 },
   synth: { osc: "triangle", envelope: { attack: 0.08, decay: 0.3, sustain: 0.6, release: 0.9 }, dist: 0, volume: -7 },
   retro: { osc: "pulse", envelope: { attack: 0.001, decay: 0.12, sustain: 0.3, release: 0.15 }, dist: 0, volume: -9 },
-  bass: { osc: "fatsawtooth", envelope: { attack: 0.02, decay: 0.2, sustain: 0.7, release: 0.5 }, dist: 0.1, volume: -6 }
+  bass: { osc: "fatsawtooth", envelope: { attack: 0.02, decay: 0.2, sustain: 0.7, release: 0.5 }, dist: 0.1, volume: -6 },
+  sine: { osc: "sine", envelope: { attack: 0.02, decay: 0.2, sustain: 0.6, release: 0.6 }, dist: 0, volume: -6 },
+  supersaw: { osc: "fatsawtooth", envelope: { attack: 0.02, decay: 0.15, sustain: 0.72, release: 0.5 }, dist: 0.22, volume: -12 },
+  square: { osc: "square", envelope: { attack: 0.005, decay: 0.12, sustain: 0.4, release: 0.2 }, dist: 0, volume: -10 },
+  fm: { osc: "fmsine", envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.6 }, dist: 0, volume: -8 },
+  am: { osc: "amsine", envelope: { attack: 0.02, decay: 0.25, sustain: 0.5, release: 0.6 }, dist: 0, volume: -8 },
+  pwm: { osc: "pwm", envelope: { attack: 0.06, decay: 0.3, sustain: 0.6, release: 0.8 }, dist: 0, volume: -9 },
+  pluck: { osc: "triangle", envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.2 }, dist: 0, volume: -5 },
+  warm: { osc: "fattriangle", envelope: { attack: 0.1, decay: 0.3, sustain: 0.7, release: 1 }, dist: 0, volume: -7 },
+  hard: { osc: "fatsquare", envelope: { attack: 0.005, decay: 0.15, sustain: 0.5, release: 0.3 }, dist: 0.45, volume: -12 },
+  organ: { osc: "fmsquare", envelope: { attack: 0.01, decay: 0.1, sustain: 0.9, release: 0.2 }, dist: 0, volume: -9 }
 };
+
+// Ordered list used to populate both Sound Type dropdowns (Band Instruments + Loop Sequencer).
+const SOUND_TYPE_OPTIONS = [
+  { value: "sampled", label: "Sampled (real)" },
+  { value: "electronic", label: "Electronic" },
+  { value: "techno", label: "Techno" },
+  { value: "synth", label: "Synth Pad" },
+  { value: "retro", label: "Retro 8-bit" },
+  { value: "bass", label: "Deep Bass" },
+  { value: "sine", label: "Sine (Soft)" },
+  { value: "supersaw", label: "Supersaw Lead" },
+  { value: "square", label: "Square (Chiptune)" },
+  { value: "fm", label: "FM Bell" },
+  { value: "am", label: "AM Tremolo" },
+  { value: "pwm", label: "PWM Pad" },
+  { value: "pluck", label: "Pluck" },
+  { value: "warm", label: "Warm Pad" },
+  { value: "hard", label: "Hard Lead" },
+  { value: "organ", label: "Organ Synth" }
+];
 
 // Per-sound-type SYNTHESIZED drum kits. When #genSoundType != "sampled", the Drum Kit is
 // synthesized (electronic drum-machine style) instead of the real acoustic samples, so each
@@ -2168,6 +2354,12 @@ const DRUM_SYNTH_KITS = {
   synth: { osc: "triangle", pitchDecay: 0.05, octaves: 5, kickDecay: 0.5, snareType: "pink", snareDecay: 0.22, hatType: "pink", hatDecay: 0.06, hatFreq: 7000, dist: 0 },
   retro: { osc: "square", pitchDecay: 0.008, octaves: 10, kickDecay: 0.3, snareType: "white", snareDecay: 0.1, hatType: "white", hatDecay: 0.03, hatFreq: 10000, dist: 0.05 },
   bass: { osc: "sine", pitchDecay: 0.06, octaves: 4, kickDecay: 0.7, snareType: "brown", snareDecay: 0.24, hatType: "white", hatDecay: 0.05, hatFreq: 6000, dist: 0.1 }
+};
+
+// New sound types borrow a drum-kit character from an existing kit (keeps drums in sync too).
+const DRUM_KIT_ALIAS = {
+  sine: "synth", supersaw: "electronic", square: "retro", fm: "techno", am: "synth",
+  pwm: "synth", pluck: "retro", warm: "synth", hard: "techno", organ: "synth"
 };
 
 // Build a repeating musical phrase for a melodic instrument (used as a region's content).
@@ -2320,6 +2512,17 @@ function generateVocalPart() {
   return track;
 }
 
+// Play the same notes through several voices at once (layer the real instrument with a synth).
+function makeLayeredVoice(voices) {
+  return {
+    triggerAttackRelease(notes, duration, time, velocity) {
+      voices.forEach((voice) => {
+        try { voice.triggerAttackRelease(notes, duration, time, velocity); } catch (error) { /* ignore */ }
+      });
+    }
+  };
+}
+
 // "Generate Music" (beside Rec Sample): make a musical clip for the selected instrument in
 // the chosen Music Style and drop it on the timeline as a draggable, tempo-tagged region.
 // Render a short piece of real music from the sample instruments (in the chosen style)
@@ -2345,16 +2548,29 @@ async function renderStyleMusicBuffer(instrumentDef, style) {
     const reverb = new Tone.Reverb({ decay: 2.4, wet: 0.16 }).toDestination();
     let lead = null;
     let drums = null;
+    let drumKit = null;
     if (isDrums) {
+      // Instrument (real kit) + Sound Type (synth kit) + Style (groove), layered together.
       drums = new Tone.Players({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(reverb);
-      drums.volume.value = -2;
+      drums.volume.value = soundDef ? -7 : -2;
+      if (soundDef) {
+        drumKit = buildSynthDrumKit(soundType, reverb);
+      }
     } else if (soundDef) {
       let dest = reverb;
       if (soundDef.dist > 0) {
         dest = new Tone.Distortion({ distortion: soundDef.dist, wet: 0.5 }).connect(reverb);
       }
-      lead = new Tone.PolySynth(Tone.Synth, { oscillator: { type: soundDef.osc }, envelope: soundDef.envelope }).connect(dest);
-      lead.volume.value = soundDef.volume;
+      const synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: soundDef.osc }, envelope: soundDef.envelope }).connect(dest);
+      synth.volume.value = soundDef.volume;
+      // Layer the real INSTRUMENT sample together with the Sound Type synth.
+      const layers = [synth];
+      if (isMelodic) {
+        const sampler = new Tone.Sampler({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(reverb);
+        sampler.volume.value = -2;
+        layers.push(sampler);
+      }
+      lead = layers.length > 1 ? makeLayeredVoice(layers) : synth;
     } else {
       lead = new Tone.Sampler({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(reverb);
       lead.volume.value = -1;
@@ -2367,15 +2583,20 @@ async function renderStyleMusicBuffer(instrumentDef, style) {
       last.set(key, safe);
       return safe;
     };
+    const hitDrum = (piece, key, t, vel) => {
+      const at = nextTime(key, t);
+      if (drumKit) { drumKit.trigger(piece, at, vel); }
+      if (drums && drums.has(piece)) { drums.player(piece).start(at); }
+    };
     let walk = Math.floor(scale.length / 3);
     for (let step = 0; step < stepCount; step += 1) {
       const t = step * secondsPerStep;
       const inBar = step % 16;
       const chord = prog[Math.floor(step / 16) % prog.length];
-      if (isDrums && drums) {
-        if (inBar % 4 === 0 && drums.has("kick")) { drums.player("kick").start(nextTime("k", t)); }
-        if ((inBar === 4 || inBar === 12) && drums.has("snare")) { drums.player("snare").start(nextTime("s", t)); }
-        if (inBar % 2 === 0 && drums.has("hihat")) { drums.player("hihat").start(nextTime("h", t)); }
+      if (isDrums) {
+        if (inBar % 4 === 0) { hitDrum("kick", "k", t, 0.9); }
+        if (inBar === 4 || inBar === 12) { hitDrum("snare", "s", t, 0.9); }
+        if (inBar % 2 === 0) { hitDrum("hihat", "h", t, 0.7); }
       } else if (lead) {
         // Chords + melody, all on the selected instrument.
         if (inBar === 0) {
@@ -2389,7 +2610,29 @@ async function renderStyleMusicBuffer(instrumentDef, style) {
       }
     }
   }, renderSeconds, 2);
-  return rendered.get();
+  const buffer = rendered.get();
+  normalizeBuffer(buffer, 0.95); // layered voices can sum past 0dB -> scale to a safe peak (no clipping)
+  return buffer;
+}
+
+// Scale an AudioBuffer in place so its loudest sample sits at `target` (prevents clipping).
+function normalizeBuffer(buffer, target = 0.95) {
+  let peak = 0;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch += 1) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < data.length; i += 1) {
+      const a = Math.abs(data[i]);
+      if (a > peak) { peak = a; }
+    }
+  }
+  if (peak > 0) {
+    const gain = target / peak;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch += 1) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < data.length; i += 1) { data[i] *= gain; }
+    }
+  }
+  return buffer;
 }
 
 // "Generate Music" makes real music from the sample instruments (in the chosen style) and
@@ -2398,6 +2641,9 @@ async function generateMusicForSelected() {
   const id = state.selectedInstrument;
   const def = getInstrumentDef(id);
   const style = elements.genMusicStyle ? elements.genMusicStyle.value : "pop";
+  const soundType = elements.genSoundType ? elements.genSoundType.value : "sampled";
+  const styleLabel = GEN_STYLE_LABELS[style] || style;
+  const soundTag = soundType !== "sampled" ? ` ${soundType.charAt(0).toUpperCase()}${soundType.slice(1)}` : "";
   const ready = await startAudio();
   if (!ready) {
     return;
@@ -2409,11 +2655,11 @@ async function generateMusicForSelected() {
     button.innerHTML = `<i data-lucide="loader"></i><span>Making\u2026</span>`;
     refreshIcons();
   }
-  elements.statusText.textContent = `Generating ${GEN_STYLE_LABELS[style] || style} music\u2026`;
+  elements.statusText.textContent = `Generating ${styleLabel}${soundTag} music\u2026`;
   try {
     const buffer = await renderStyleMusicBuffer(def, style);
     const baseName = (def.sample && def.sample.kind === "melodic") ? def.short : (def.id === "drums" ? "Drums" : "Music");
-    const name = `${GEN_STYLE_LABELS[style] || style} ${baseName}`.slice(0, 24);
+    const name = `${styleLabel}${soundTag} ${baseName}`.slice(0, 24);
     await addSampleBuffer(buffer, name, { autoRename: false, persist: true });
     const newId = state.selectedInstrument;
     startSamplePreview(newId, getInstrumentDef(newId));
@@ -2880,15 +3126,10 @@ function renderSequencer() {
     nameCell.append(remove);
     row.append(nameCell);
 
-    let regionCells = null;
-    if (track.region) {
-      const startPos = Math.max(0, Math.min(track.regionStart || 0, total));
-      const len = Math.min(track.regionLen || total, total - startPos);
-      regionCells = new Set();
-      for (let s = 0; s < len; s += 1) {
-        regionCells.add(startPos + s);
-      }
-    }
+    // Every track has an adjustable window [winStart, winStart+winLen) (trim/expand like GarageBand).
+    const winStart = Math.max(0, Math.min(track.regionStart || 0, total));
+    const winLen = Math.min(track.regionLen != null ? track.regionLen : (total - winStart), total - winStart);
+    const trimmed = track.regionLen != null;
 
     for (let step = 0; step < total; step += 1) {
       const cell = document.createElement("button");
@@ -2904,21 +3145,21 @@ function renderSequencer() {
       if (track.pattern[step]) {
         cell.classList.add("is-active");
       }
-      if (regionCells && regionCells.has(step)) {
-        cell.classList.add("in-region");
+      const inWindow = step >= winStart && step < winStart + winLen;
+      if (track.region) {
+        if (inWindow) { cell.classList.add("in-region"); }
+      } else if (trimmed && !inWindow) {
+        cell.classList.add("out-region");
       }
       state.stepColumns[step].push(cell);
       row.append(cell);
     }
 
+    // Trim/expand handles for every track; clips also get a draggable body to move them.
+    row.style.position = "relative";
+    const leftPx = 128 + winStart * STEP_W;
+    const widthPx = winLen * STEP_W;
     if (track.region) {
-      row.style.position = "relative";
-      const startPos = Math.max(0, Math.min(track.regionStart || 0, total));
-      const len = Math.min(track.regionLen || total, total - startPos);
-      const leftPx = 128 + startPos * STEP_W;
-      const widthPx = len * STEP_W;
-
-      // Draggable clip body (move the whole region along the timeline).
       const body = document.createElement("div");
       body.className = "region-body";
       body.title = "Drag to move the clip \u00b7 drag either edge to trim";
@@ -2926,23 +3167,19 @@ function renderSequencer() {
       body.style.width = `${widthPx}px`;
       body.addEventListener("pointerdown", (event) => startRegionMove(event, track, row));
       row.append(body);
-
-      // Left trim handle.
-      const leftHandle = document.createElement("div");
-      leftHandle.className = "region-handle region-handle-left";
-      leftHandle.title = "Drag to trim the clip start";
-      leftHandle.style.left = `${leftPx - 6}px`;
-      leftHandle.addEventListener("pointerdown", (event) => startRegionResize(event, track, row, "left"));
-      row.append(leftHandle);
-
-      // Right trim / extend handle.
-      const rightHandle = document.createElement("div");
-      rightHandle.className = "region-handle region-handle-right";
-      rightHandle.title = "Drag to change the clip length";
-      rightHandle.style.left = `${leftPx + widthPx - 6}px`;
-      rightHandle.addEventListener("pointerdown", (event) => startRegionResize(event, track, row, "right"));
-      row.append(rightHandle);
     }
+    const leftHandle = document.createElement("div");
+    leftHandle.className = "region-handle region-handle-left";
+    leftHandle.title = "Drag to trim the start";
+    leftHandle.style.left = `${leftPx - 6}px`;
+    leftHandle.addEventListener("pointerdown", (event) => startRegionResize(event, track, row, "left"));
+    row.append(leftHandle);
+    const rightHandle = document.createElement("div");
+    rightHandle.className = "region-handle region-handle-right";
+    rightHandle.title = "Drag to trim or expand the end";
+    rightHandle.style.left = `${leftPx + widthPx - 6}px`;
+    rightHandle.addEventListener("pointerdown", (event) => startRegionResize(event, track, row, "right"));
+    row.append(rightHandle);
 
     gridFrag.append(row);
   });
@@ -3004,7 +3241,7 @@ function startRegionResize(event, track, row, edge) {
       return;
     }
     preview = { start, len, offset };
-    updateRegionPreviewBlock(row, start, len);
+    updateRegionPreviewBlock(row, track, start, len);
     const bars = Math.round(len / STEPS_PER_BAR);
     elements.statusText.textContent = `Clip: ${bars} bar${bars === 1 ? "" : "s"}`;
   };
@@ -3042,7 +3279,7 @@ function startRegionMove(event, track, row) {
       return;
     }
     previewStart = start;
-    updateRegionPreviewBlock(row, start, len);
+    updateRegionPreviewBlock(row, track, start, len);
     const bar = Math.round(start / STEPS_PER_BAR) + 1;
     elements.statusText.textContent = `Clip start: bar ${bar}`;
   };
@@ -3059,11 +3296,16 @@ function startRegionMove(event, track, row) {
   body.addEventListener("pointercancel", onUp);
 }
 
-// Live drag feedback: move the block + handles and repaint the in-region cells.
-function updateRegionPreviewBlock(row, start, len) {
+// Live drag feedback: move the block + handles and repaint the window cells.
+function updateRegionPreviewBlock(row, track, start, len) {
   const cells = row.querySelectorAll(".step-cell");
   cells.forEach((cell, index) => {
-    cell.classList.toggle("in-region", index >= start && index < start + len);
+    const inside = index >= start && index < start + len;
+    if (track.region) {
+      cell.classList.toggle("in-region", inside);
+    } else {
+      cell.classList.toggle("out-region", !inside);
+    }
   });
   const leftPx = 128 + start * STEP_W;
   const widthPx = len * STEP_W;
@@ -3097,7 +3339,9 @@ function commitRegion(track, start, len, offset) {
   track.regionStart = startPos;
   track.regionLen = Math.min(len, total - startPos);
   track.regionOffset = offset || 0;
-  retileRegion(track);
+  if (track.region) {
+    retileRegion(track);
+  }
   renderSequencer();
   const bars = Math.round(track.regionLen / STEPS_PER_BAR);
   const startBar = Math.round(track.regionStart / STEPS_PER_BAR) + 1;
@@ -3753,6 +3997,13 @@ function setBars(bars) {
         track.regionLen = Math.max(STEPS_PER_BAR, length - startPos);
       }
       retileRegion(track);
+    } else if (track.regionLen != null) {
+      // Keep a trimmed plain track's window inside the (possibly shrunk) timeline.
+      const startPos = Math.max(0, Math.min(track.regionStart || 0, Math.max(0, length - STEPS_PER_BAR)));
+      track.regionStart = startPos;
+      if (startPos + track.regionLen > length) {
+        track.regionLen = Math.max(STEPS_PER_BAR, length - startPos);
+      }
     }
   });
   if (state.nextStep >= length) {
@@ -3835,6 +4086,13 @@ function onTick(time) {
     state.seqTracks.forEach((track) => {
       if (!track.pattern[step]) {
         return;
+      }
+      // Respect each track's trim/expand window: skip steps outside [start, start+len).
+      if (track.regionLen != null) {
+        const ws = track.regionStart || 0;
+        if (step < ws || step >= ws + track.regionLen) {
+          return;
+        }
       }
       if (track.kind === "vocal") {
         if (state.vocalsOn) {
@@ -3978,6 +4236,24 @@ function currentSoundType() {
   return elements.genSoundType ? elements.genSoundType.value : "sampled";
 }
 
+// Fill both Sound Type dropdowns (Band Instruments + Loop Sequencer) from SOUND_TYPE_OPTIONS.
+function populateSoundTypeSelects() {
+  [elements.genSoundType, elements.genSoundTypeSeq].forEach((select) => {
+    if (!select) {
+      return;
+    }
+    const current = select.value || "sampled";
+    select.innerHTML = "";
+    SOUND_TYPE_OPTIONS.forEach((opt) => {
+      const option = document.createElement("option");
+      option.value = opt.value;
+      option.textContent = opt.label;
+      select.append(option);
+    });
+    select.value = SOUND_TYPE_OPTIONS.some((opt) => opt.value === current) ? current : "sampled";
+  });
+}
+
 function getSoundTypeVoice(instrumentId) {
   const def = getInstrumentDef(instrumentId);
   if (!def || !def.sample || def.sample.kind !== "melodic") {
@@ -4034,7 +4310,7 @@ function disposeSoundTypeSynths() {
 
 // Build a synthesized drum kit for a sound type, routed through the drums mixer channel.
 function buildSynthDrumKit(soundType, channel) {
-  const k = DRUM_SYNTH_KITS[soundType];
+  const k = DRUM_SYNTH_KITS[soundType] || DRUM_SYNTH_KITS[DRUM_KIT_ALIAS[soundType]] || DRUM_SYNTH_KITS.electronic;
   if (!k) {
     return null;
   }
@@ -4076,7 +4352,7 @@ function buildSynthDrumKit(soundType, channel) {
 // Return the synthesized drum kit for the current sound type, or null for "sampled" (real samples).
 function getSoundTypeDrumKit() {
   const soundType = currentSoundType();
-  if (!DRUM_SYNTH_KITS[soundType]) {
+  if (soundType === "sampled") {
     return null;
   }
   const channel = state.channels.drums;
@@ -4106,6 +4382,9 @@ function disposeDrumKit(kit) {
 // Rebuild voices on change and give immediate audible feedback on the selected instrument.
 function onSoundTypeChange() {
   disposeSoundTypeSynths();
+  if (elements.genSoundTypeSeq && elements.genSoundType && elements.genSoundTypeSeq.value !== elements.genSoundType.value) {
+    elements.genSoundTypeSeq.value = elements.genSoundType.value;
+  }
   const select = elements.genSoundType;
   const label = select && select.selectedOptions[0] ? select.selectedOptions[0].textContent : currentSoundType();
   elements.statusText.textContent = `Sound: ${label}`;
@@ -4267,6 +4546,10 @@ function updateControlLabels() {
     elements.tempoBottom.value = elements.tempo.value;
     elements.tempoBottomValue.value = `${elements.tempo.value} BPM`;
   }
+  if (elements.timelineSpeed) {
+    elements.timelineSpeed.value = elements.tempo.value;
+    elements.timelineSpeedValue.value = `${elements.tempo.value} BPM`;
+  }
   if (elements.masterBottom) {
     elements.masterBottom.value = elements.masterVolume.value;
     elements.masterBottomValue.value = `${elements.masterVolume.value} dB`;
@@ -4368,6 +4651,13 @@ async function renderCompositionBuffer(includeRecorded) {
       seqTracks.forEach((track, trackIndex) => {
         if (!track.pattern[step]) {
           return;
+        }
+        // Honor each track's trim/expand window.
+        if (track.regionLen != null) {
+          const ws = track.regionStart || 0;
+          if (step < ws || step >= ws + track.regionLen) {
+            return;
+          }
         }
         const base = stepTime + trackIndex * 0.0004;
         if (track.kind === "sample") {
@@ -4672,3 +4962,6 @@ function drawWave(context, waveform, width, height, color, offset) {
   }
   context.stroke();
 }
+
+/* ---------- Deferred init (runs after all module constants are defined) ---------- */
+populateSoundTypeSelects();

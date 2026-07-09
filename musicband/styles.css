@@ -950,6 +950,10 @@ select {
   cursor: default;
 }
 
+.timeline-speed {
+  margin: 12px 0 4px;
+}
+
 .keyboard-header {
   display: flex;
   align-items: center;
@@ -1469,6 +1473,11 @@ select {
 .step-cell.in-region {
   background: color-mix(in srgb, var(--track-color) 24%, rgba(255, 255, 255, 0.05));
   border-color: color-mix(in srgb, var(--track-color) 42%, var(--line));
+}
+
+.step-cell.out-region {
+  opacity: 0.3;
+  filter: grayscale(0.5);
 }
 
 .region-handle {

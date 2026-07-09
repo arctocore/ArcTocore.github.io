@@ -57,6 +57,15 @@
             <i data-lucide="eraser"></i>
             <span>Clear</span>
           </button>
+          <button class="command-button" id="saveProject" type="button">
+            <i data-lucide="save"></i>
+            <span>Save Project</span>
+          </button>
+          <button class="command-button" id="loadProject" type="button">
+            <i data-lucide="folder-open"></i>
+            <span>Load Project</span>
+          </button>
+          <input id="projectFileInput" type="file" accept="application/json,.json" hidden>
         </div>
 
         <div class="control-stack">
@@ -309,6 +318,12 @@
               </optgroup>
             </select>
           </label>
+          <label class="chip-select" for="genSoundTypeSeq">
+            <span>Sound Type</span>
+            <select id="genSoundTypeSeq">
+              <option value="sampled" selected>Sampled (real)</option>
+            </select>
+          </label>
           <label class="chip-select" for="songLength">
             <span>Length</span>
             <select id="songLength">
@@ -454,6 +469,12 @@
         <div class="step-labels" id="stepLabels" aria-hidden="true"></div>
         <div class="sequence-grid" id="sequenceGrid"></div>
       </div>
+
+      <label class="range-control timeline-speed" for="timelineSpeed">
+        <span>Speed</span>
+        <input id="timelineSpeed" type="range" min="60" max="200" value="128">
+        <output id="timelineSpeedValue" for="timelineSpeed">128 BPM</output>
+      </label>
 
       <div class="sequencer-transport">
         <button class="command-button primary" id="seqPlay" type="button">
