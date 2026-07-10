@@ -15,6 +15,14 @@
       <section class="brand-panel" aria-labelledby="studioTitle">
         <div class="brand-copy">
           <h1 id="studioTitle">MusicBand Studio<span class="pro-badge">Pro</span></h1>
+          <div class="brand-links">
+            <a class="help-link" href="help.html" target="_blank" rel="noopener" title="Open the MusicBand user guide & tutorial">
+              <i data-lucide="help-circle"></i><span>Help &amp; Tutorial</span>
+            </a>
+            <a class="help-link" href="license.html" target="_blank" rel="noopener" title="View the Custom Commercial Cloud-Use License">
+              <i data-lucide="file-text"></i><span>License</span>
+            </a>
+          </div>
           <div class="meter-cluster" aria-label="Output meters">
             <div class="level-meter"><span id="meterL" class="level-fill"></span></div>
             <div class="level-meter"><span id="meterR" class="level-fill"></span></div>
@@ -36,26 +44,6 @@
           <button class="command-button primary" id="audioStart" type="button">
             <i data-lucide="power"></i>
             <span>Start Audio</span>
-          </button>
-          <button class="command-button" id="playStop" type="button" disabled>
-            <i data-lucide="play"></i>
-            <span>Play</span>
-          </button>
-          <button class="command-button ghost" id="panic" type="button" disabled>
-            <i data-lucide="square"></i>
-            <span>Stop</span>
-          </button>
-          <button class="command-button record" id="recordToggle" type="button" aria-pressed="false">
-            <i data-lucide="circle"></i>
-            <span>Record</span>
-          </button>
-          <button class="command-button" id="metronomeToggle" type="button" disabled aria-pressed="false">
-            <i data-lucide="alarm-clock"></i>
-            <span>Click</span>
-          </button>
-          <button class="command-button" id="clearLoop" type="button" disabled>
-            <i data-lucide="eraser"></i>
-            <span>Clear</span>
           </button>
           <button class="command-button" id="saveProject" type="button">
             <i data-lucide="save"></i>
@@ -84,6 +72,16 @@
             <input id="octaveShift" type="range" min="-2" max="2" value="0" step="1">
             <output id="octaveValue" for="octaveShift">0</output>
           </label>
+          <label class="range-control" for="pvPitch" title="Phase-vocoder pitch shift — applied to samples &amp; export">
+            <span>Pitch</span>
+            <input id="pvPitch" type="range" min="-12" max="12" value="0" step="1">
+            <output id="pvPitchValue" for="pvPitch">0 st</output>
+          </label>
+          <label class="range-control" for="pvSpeed" title="Phase-vocoder time-stretch — applied to samples &amp; export">
+            <span>Stretch</span>
+            <input id="pvSpeed" type="range" min="0.5" max="2" value="1" step="0.05">
+            <output id="pvSpeedValue" for="pvSpeed">1.00x</output>
+          </label>
         </div>
       </section>
     </header>
@@ -99,25 +97,6 @@
             </span>
           </div>
           <div class="panel-body">
-            <label class="chip-select rack-style" for="genMusicStyle">
-              <span>Music Style</span>
-              <select id="genMusicStyle">
-                <option value="pop" selected>Pop</option>
-                <option value="edm">EDM / Dance</option>
-                <option value="electronic">Electronic</option>
-                <option value="techno">Techno</option>
-                <option value="hiphop">Hip-Hop</option>
-                <option value="rnb">R&amp;B / Soul</option>
-                <option value="rock">Rock</option>
-                <option value="funk">Funk</option>
-                <option value="blues">Blues</option>
-                <option value="jazz">Jazz</option>
-                <option value="latin">Latin</option>
-                <option value="reggae">Reggae</option>
-                <option value="folk">Folk</option>
-                <option value="ambient">Ambient</option>
-              </select>
-            </label>
             <label class="chip-select rack-style" for="genSoundType">
               <span>Sound Type</span>
               <select id="genSoundType">
@@ -147,6 +126,7 @@
         </div>
       </aside>
 
+      <div class="perf-column">
       <section class="performance-panel" data-accordion="selected" aria-label="Performance area">
         <div class="performance-header">
           <div class="perf-title accordion-toggle" role="button" tabindex="0" aria-expanded="true">
@@ -170,20 +150,27 @@
             <button class="chip-toggle" id="exportSample" type="button">
               <i data-lucide="download"></i><span>Export Sample</span>
             </button>
-            <label class="chip-select sample-stretch" id="sampleStretchWrap" for="sampleStretch" hidden>
-              <span>Stretch</span>
-              <input id="sampleStretch" type="range" min="0.25" max="4" step="0.05" value="1">
-              <output id="sampleStretchValue" for="sampleStretch">1.00x</output>
+            <label class="chip-select gen-style" id="genStyleWrap" for="genStyleSelect" hidden>
+              <span>Style</span>
+              <select id="genStyleSelect"></select>
             </label>
-            <label class="chip-select" for="scaleSelect">
-              <span>Scale</span>
-              <select id="scaleSelect">
-                <option value="chromatic">Chromatic</option>
-                <option value="major" selected>Major</option>
-                <option value="minor">Minor</option>
-                <option value="pentatonic">Pentatonic</option>
-                <option value="blues">Blues</option>
-                <option value="dorian">Dorian</option>
+            <label class="chip-select amp-tone" id="ampToneWrap" for="ampToneSelect" hidden>
+              <span>Amp Tone</span>
+              <select id="ampToneSelect">
+                <option value="flat" selected>Flat (off)</option>
+                <option value="classic">Classic Rock / Blues</option>
+                <option value="metal">80s Hard Rock / Metal</option>
+                <option value="punk">Modern Punk / Alt</option>
+              </select>
+            </label>
+            <label class="chip-select guitar-distort" id="guitarDistortWrap" for="guitarDistortSelect" hidden>
+              <span>Distortion</span>
+              <select id="guitarDistortSelect">
+                <option value="clean" selected>Clean</option>
+                <option value="sizes">Sizes</option>
+                <option value="angles">Angles</option>
+                <option value="distances">Distances</option>
+                <option value="directions">Directions</option>
               </select>
             </label>
           </div>
@@ -204,9 +191,6 @@
           </div>
         </div>
       </section>
-    </section>
-
-    <section class="fx-mixer-deck">
       <section class="fx-panel" data-accordion="fx" aria-label="Effects rack">
         <div class="panel-heading accordion-toggle" role="button" tabindex="0" aria-expanded="true">
           <span>Effects Rack</span>
@@ -252,8 +236,10 @@
         </div>
         </div>
       </section>
+      </div>
+    </section>
 
-      <section class="mixer-panel" data-accordion="mixer" aria-label="Track mixer">
+    <section class="mixer-panel" data-accordion="mixer" aria-label="Track mixer">
         <div class="panel-heading accordion-toggle" role="button" tabindex="0" aria-expanded="true">
           <span>Mixer</span>
           <span class="heading-meta">
@@ -265,7 +251,6 @@
           <div class="mixer-grid" id="mixerGrid"></div>
         </div>
       </section>
-    </section>
 
     <section class="sequencer-panel" data-accordion="sequencer" aria-label="Step sequencer">
       <div class="panel-heading">
@@ -316,6 +301,44 @@
                 <option value="afrobeats">Afrobeats</option>
                 <option value="reggae">Reggae / Dancehall</option>
               </optgroup>
+              <optgroup label="Artists · Pop &amp; R&amp;B">
+                <option value="taylor-swift">Taylor Swift</option>
+                <option value="ariana-grande">Ariana Grande</option>
+                <option value="the-weeknd">The Weeknd</option>
+                <option value="billie-eilish">Billie Eilish</option>
+                <option value="justin-bieber">Justin Bieber</option>
+                <option value="bruno-mars">Bruno Mars</option>
+                <option value="lady-gaga">Lady Gaga</option>
+                <option value="rihanna">Rihanna</option>
+                <option value="dua-lipa">Dua Lipa</option>
+                <option value="harry-styles">Harry Styles</option>
+              </optgroup>
+              <optgroup label="Artists · Hip-Hop &amp; Rap">
+                <option value="drake">Drake</option>
+                <option value="eminem">Eminem</option>
+                <option value="kendrick-lamar">Kendrick Lamar</option>
+                <option value="kanye-west">Kanye West</option>
+                <option value="sza">SZA</option>
+                <option value="post-malone">Post Malone</option>
+                <option value="travis-scott">Travis Scott</option>
+                <option value="nicki-minaj">Nicki Minaj</option>
+              </optgroup>
+              <optgroup label="Artists · Latin &amp; Global">
+                <option value="bad-bunny">Bad Bunny</option>
+                <option value="shakira">Shakira</option>
+                <option value="bts">BTS</option>
+                <option value="j-balvin">J Balvin</option>
+                <option value="karol-g">KAROL G</option>
+                <option value="daddy-yankee">Daddy Yankee</option>
+              </optgroup>
+              <optgroup label="Artists · Rock, Folk &amp; Legacy">
+                <option value="coldplay">Coldplay</option>
+                <option value="arctic-monkeys">Arctic Monkeys</option>
+                <option value="imagine-dragons">Imagine Dragons</option>
+                <option value="michael-jackson">Michael Jackson</option>
+                <option value="the-beatles">The Beatles</option>
+                <option value="queen">Queen</option>
+              </optgroup>
             </select>
           </label>
           <label class="chip-select" for="genSoundTypeSeq">
@@ -338,18 +361,6 @@
           <button class="mini-button primary" id="randomizeSeq" type="button">
             <i data-lucide="shuffle"></i><span>Randomize Song</span>
           </button>
-          <button class="chip-toggle" id="vocalsToggle" type="button" aria-pressed="true">
-            <i data-lucide="mic"></i><span>Vocals</span>
-          </button>
-          <span class="song-text-group">
-            <label class="chip-field" for="songLyrics">
-              <span>Song Text</span>
-              <input id="songLyrics" type="text" placeholder="Song lyrics — separate lines with |">
-            </label>
-            <button class="mini-button" id="testSongVoice" type="button">
-              <i data-lucide="volume-2"></i><span>Test Voice</span>
-            </button>
-          </span>
           <span class="tiny-label genre-tag" id="randomGenre">16 Steps</span>
         </div>
 
@@ -384,20 +395,6 @@
             <option value="chipmunk">Chipmunk</option>
           </select>
         </label>
-        <div class="voice-curve" aria-label="Voice sine sound curve">
-          <span class="tiny-label">Voice Curve</span>
-          <canvas id="voiceCurve" width="260" height="54"></canvas>
-          <label class="voice-range" for="voiceCurveDepth">
-            <span>Depth</span>
-            <input id="voiceCurveDepth" type="range" min="0" max="1" step="0.05" value="0">
-            <output id="voiceCurveDepthValue" for="voiceCurveDepth">0%</output>
-          </label>
-          <label class="voice-range" for="voiceCurveRate">
-            <span>Rate</span>
-            <input id="voiceCurveRate" type="range" min="0.1" max="2" step="0.1" value="0.5">
-            <output id="voiceCurveRateValue" for="voiceCurveRate">0.5</output>
-          </label>
-        </div>
         <label class="chip-select" for="addNote" id="noteSelectWrap">
           <span>Note</span>
           <select id="addNote"></select>
@@ -459,22 +456,16 @@
       <div class="sample-studio" aria-label="Sample studio">
         <span class="tiny-label">Sample Studio</span>
         <button class="mini-button" id="uploadSample" type="button">
-          <i data-lucide="upload"></i><span>Upload WAV</span>
+          <i data-lucide="upload"></i><span>WAV or MP3</span>
         </button>
-        <input id="sampleFileInput" type="file" accept="audio/wav,audio/x-wav,audio/wave,.wav" hidden>
-        <span class="tiny-label muted">Upload a WAV or capture with Rec Sample — samples save to your browser</span>
+        <input id="sampleFileInput" type="file" accept="audio/wav,audio/x-wav,audio/wave,.wav,audio/mpeg,audio/mp3,.mp3" hidden>
+        <span class="tiny-label muted">Upload a WAV or MP3, or capture with Rec Sample — samples save to your browser</span>
       </div>
 
       <div class="sequencer-scroll">
         <div class="step-labels" id="stepLabels" aria-hidden="true"></div>
         <div class="sequence-grid" id="sequenceGrid"></div>
       </div>
-
-      <label class="range-control timeline-speed" for="timelineSpeed">
-        <span>Speed</span>
-        <input id="timelineSpeed" type="range" min="60" max="200" value="128">
-        <output id="timelineSpeedValue" for="timelineSpeed">128 BPM</output>
-      </label>
 
       <div class="sequencer-transport">
         <button class="command-button primary" id="seqPlay" type="button">
@@ -511,6 +502,10 @@
       </div>
     </section>
   </main>
+
+  <footer class="app-footer">
+    <span>2026 ArcToCore - [Steen Østerby Rasmussen]</span>
+  </footer>
 
   <div class="modal-backdrop" id="downloadModal" hidden>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="downloadTitle">
@@ -576,6 +571,7 @@
       }
     })();
   </script>
+  <script src="PhaseVocoder.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

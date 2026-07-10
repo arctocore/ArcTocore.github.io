@@ -107,6 +107,16 @@ const instrumentDefs = [
     pads: chordPads()
   },
   {
+    id: "electric-piano", name: "Electric Piano", short: "El.Piano", role: "Keys", color: "#ffb86b", duration: "4n", synth: true,
+    fallback: () => new Tone.PolySynth(Tone.FMSynth, { harmonicity: 3.01, modulationIndex: 10, envelope: { attack: 0.006, decay: 1.1, sustain: 0.22, release: 1.3 }, modulationEnvelope: { attack: 0.01, decay: 0.5, sustain: 0.1, release: 0.6 } }),
+    pads: chordPads()
+  },
+  {
+    id: "keyboard", name: "Keyboard", short: "Keys", role: "Keys", color: "#c9a7ff", duration: "4n", synth: true,
+    fallback: () => new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsawtooth", count: 3, spread: 22 }, envelope: { attack: 0.02, decay: 0.3, sustain: 0.55, release: 0.8 } }),
+    pads: chordPads()
+  },
+  {
     id: "violin", name: "Violin", short: "Violin", role: "Strings", color: "#9e8cff", duration: "2n",
     sample: { kind: "melodic", baseUrl: `${INST_BASE}violin/`, urls: sampleUrls(["G3", "C4", "E4", "A4", "C5", "E5", "A5"]) },
     fallback: () => new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sawtooth" }, envelope: { attack: 0.35, decay: 0.18, sustain: 0.8, release: 1.4 } }),
@@ -175,6 +185,8 @@ const addOptions = [
   { value: "saxophone", label: "Saxophone" },
   { value: "flute", label: "Flute" },
   { value: "organ", label: "Organ" },
+  { value: "electric-piano", label: "Electric Piano" },
+  { value: "keyboard", label: "Keyboard" },
   { value: "sample", label: "Sample 1 (Recorded)" },
   { value: "vocals", label: "Vocals (Voice)" }
 ];
@@ -243,6 +255,10 @@ const elements = {
   masterValue: document.querySelector("#masterValue"),
   octaveShift: document.querySelector("#octaveShift"),
   octaveValue: document.querySelector("#octaveValue"),
+  pvPitch: document.querySelector("#pvPitch"),
+  pvPitchValue: document.querySelector("#pvPitchValue"),
+  pvSpeed: document.querySelector("#pvSpeed"),
+  pvSpeedValue: document.querySelector("#pvSpeedValue"),
   reverbMix: document.querySelector("#reverbMix"),
   reverbValue: document.querySelector("#reverbValue"),
   delayMix: document.querySelector("#delayMix"),
@@ -268,7 +284,6 @@ const elements = {
   recordSampleToggle: document.querySelector("#recordSampleToggle"),
   recordMic: document.querySelector("#recordMic"),
   generateMusic: document.querySelector("#generateMusic"),
-  genMusicStyle: document.querySelector("#genMusicStyle"),
   genSoundType: document.querySelector("#genSoundType"),
   genSoundTypeSeq: document.querySelector("#genSoundTypeSeq"),
   scaleSelect: document.querySelector("#scaleSelect"),
@@ -344,9 +359,12 @@ const elements = {
   octaveBottomValue: document.querySelector("#octaveBottomValue"),
   testSample: document.querySelector("#testSample"),
   exportSample: document.querySelector("#exportSample"),
-  sampleStretch: document.querySelector("#sampleStretch"),
-  sampleStretchValue: document.querySelector("#sampleStretchValue"),
-  sampleStretchWrap: document.querySelector("#sampleStretchWrap"),
+  genStyleWrap: document.querySelector("#genStyleWrap"),
+  genStyleSelect: document.querySelector("#genStyleSelect"),
+  ampToneWrap: document.querySelector("#ampToneWrap"),
+  ampToneSelect: document.querySelector("#ampToneSelect"),
+  guitarDistortWrap: document.querySelector("#guitarDistortWrap"),
+  guitarDistortSelect: document.querySelector("#guitarDistortSelect"),
   rackSongText: document.querySelector("#rackSongText"),
   bandSongLyrics: document.querySelector("#bandSongLyrics"),
   bandTestVoice: document.querySelector("#bandTestVoice")
@@ -372,6 +390,13 @@ const state = {
   sampleDurations: {},
   sampleStretch: {},
   regionPlayers: {},
+  livePlayers: {},
+  sampleOriginals: {},
+  selectedTrackUid: null,
+  clipboardTrack: null,
+  pvPitch: 0,
+  pvStretch: 1,
+  pvContext: null,
   pendingSampleBuffers: {},
   sampleDb: null,
   sampleTapDest: null,
@@ -405,6 +430,9 @@ const state = {
   instruments: {},
   soundTypeSynths: {},
   soundTypeDrums: null,
+  guitarDistortion: "clean",
+  ampTone: {},
+  instrumentFx: {},
   channels: {},
   channelSettings: {},
   soloed: new Set(),
@@ -412,9 +440,15 @@ const state = {
   recordingBuffer: null,
   downloadBaseName: null,
   activeKeyNotes: new Map(),
+  heldNotes: new Map(),
+  previewTimers: [],
+  previewToken: 0,
+  previewInstrument: null,
   seqTracks: [],
   stepColumns: [],
-  currentColumn: null
+  currentColumn: null,
+  autoSong: true,
+  lastSongId: null
 };
 
 state.seqTracks = defaultSeqTracks();
@@ -558,11 +592,11 @@ function setupAccordions() {
 
 function setupEvents() {
   elements.audioStart.addEventListener("click", startAudio);
-  elements.playStop.addEventListener("click", toggleTransport);
-  elements.panic.addEventListener("click", stopTransport);
-  elements.recordToggle.addEventListener("click", toggleRecording);
-  elements.metronomeToggle.addEventListener("click", toggleMetronome);
-  elements.clearLoop.addEventListener("click", clearRecording);
+  if (elements.playStop) { elements.playStop.addEventListener("click", topPlay); }
+  if (elements.panic) { elements.panic.addEventListener("click", stopTransport); }
+  if (elements.recordToggle) { elements.recordToggle.addEventListener("click", toggleRecording); }
+  if (elements.metronomeToggle) { elements.metronomeToggle.addEventListener("click", toggleMetronome); }
+  if (elements.clearLoop) { elements.clearLoop.addEventListener("click", clearRecording); }
   if (elements.saveProject) {
     elements.saveProject.addEventListener("click", saveProject);
   }
@@ -601,6 +635,12 @@ function setupEvents() {
       }
       onSoundTypeChange();
     });
+  }
+  if (elements.guitarDistortSelect) {
+    elements.guitarDistortSelect.addEventListener("change", onGuitarDistortionChange);
+  }
+  if (elements.ampToneSelect) {
+    elements.ampToneSelect.addEventListener("change", onAmpToneChange);
   }
   if (elements.exportSample) {
     elements.exportSample.addEventListener("click", exportSelectedSample);
@@ -808,15 +848,40 @@ function setupEvents() {
   });
   initVoices();
 
-  elements.scaleSelect.addEventListener("change", () => {
-    state.scale = elements.scaleSelect.value;
-    updatePianoScale();
-  });
+  if (elements.scaleSelect) {
+    elements.scaleSelect.addEventListener("change", () => {
+      state.scale = elements.scaleSelect.value;
+      updatePianoScale();
+    });
+  }
 
   elements.octaveShift.addEventListener("input", () => {
     state.octaveOffset = Number(elements.octaveShift.value);
     updateControlLabels();
   });
+  if (elements.pvPitch) {
+    elements.pvPitch.addEventListener("input", () => {
+      if (elements.pvPitchValue) {
+        const v = Number(elements.pvPitch.value);
+        elements.pvPitchValue.value = `${v > 0 ? "+" : ""}${v} st`;
+      }
+    });
+    elements.pvPitch.addEventListener("change", () => {
+      state.pvPitch = Number(elements.pvPitch.value);
+      applyPhaseVocoderToSamples();
+    });
+  }
+  if (elements.pvSpeed) {
+    elements.pvSpeed.addEventListener("input", () => {
+      if (elements.pvSpeedValue) {
+        elements.pvSpeedValue.value = `${Number(elements.pvSpeed.value).toFixed(2)}x`;
+      }
+    });
+    elements.pvSpeed.addEventListener("change", () => {
+      state.pvStretch = Number(elements.pvSpeed.value);
+      applyPhaseVocoderToSamples();
+    });
+  }
 
   elements.tempo.addEventListener("input", () => {
     updateControlLabels();
@@ -872,29 +937,6 @@ function setupEvents() {
   }
   if (elements.testSample) {
     elements.testSample.addEventListener("click", toggleSamplePreview);
-  }
-  if (elements.sampleStretch) {
-    elements.sampleStretch.addEventListener("input", () => {
-      const id = state.selectedInstrument;
-      const def = getInstrumentDef(id);
-      if (!def || !def.recorded) {
-        return;
-      }
-      const value = Number(elements.sampleStretch.value);
-      state.sampleStretch[id] = value;
-      if (elements.sampleStretchValue) {
-        elements.sampleStretchValue.value = `${value.toFixed(2)}x`;
-      }
-    });
-    elements.sampleStretch.addEventListener("change", () => {
-      const id = state.selectedInstrument;
-      state.seqTracks.forEach((track) => {
-        if (track.region && track.kind === "sample" && track.instrumentId === id) {
-          retileRegion(track);
-        }
-      });
-      renderSequencer();
-    });
   }
   if (elements.bandTestVoice) {
     elements.bandTestVoice.addEventListener("click", previewSongVoice);
@@ -961,7 +1003,7 @@ async function startAudio() {
   document.body.classList.add("audio-ready");
   elements.audioStart.disabled = true;
   [elements.playStop, elements.panic, elements.recordToggle, elements.metronomeToggle, elements.clearLoop]
-    .forEach((button) => { button.disabled = false; });
+    .forEach((button) => { if (button) { button.disabled = false; } });
 
   Object.keys(state.pendingSampleBuffers).forEach((id) => {
     const buffer = state.pendingSampleBuffers[id];
@@ -974,6 +1016,7 @@ async function startAudio() {
   });
 
   preloadInstruments();
+  routeAllChannels();
   updateLoadingStatus();
   refreshIcons();
   return true;
@@ -1033,6 +1076,13 @@ function ensureInstrument(instrumentId) {
     const stub = { def, kind: "recorded", loaded: false, useFallback: false, sampler: null, players: null, fallback: null };
     state.instruments[instrumentId] = stub;
     return stub;
+  }
+  // Synth-only instruments (Electric Piano, Keyboard) have no sample library — build their voice.
+  if (def.synth || !def.sample) {
+    const synthChannel = state.channels[instrumentId] || state.nodes.filter;
+    const synthEntry = { def, kind: "melodic", loaded: true, useFallback: true, sampler: null, players: null, fallback: def.fallback().connect(synthChannel) };
+    state.instruments[instrumentId] = synthEntry;
+    return synthEntry;
   }
   const channel = state.channels[instrumentId];
   const entry = { def, kind: def.sample.kind, loaded: false, useFallback: false, sampler: null, players: null, fallback: null };
@@ -1181,14 +1231,47 @@ function onInstrumentCardClick(instrumentId) {
   previewInstrumentSequence(instrumentId);
 }
 
+// Stop any in-progress instrument preview so only ONE instrument ever sounds at a time.
+function stopInstrumentPreview() {
+  state.previewToken = (state.previewToken || 0) + 1;
+  if (state.previewTimers && state.previewTimers.length) {
+    state.previewTimers.forEach((id) => window.clearTimeout(id));
+  }
+  state.previewTimers = [];
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  try { stopSample(); } catch (error) { /* ignore */ }
+  const id = state.previewInstrument;
+  state.previewInstrument = null;
+  // Silence the previous instrument's voice (but never cut the sequencer while it is playing).
+  if (id && !state.isPlaying) {
+    releaseInstrumentVoice(id);
+  }
+}
+
+function releaseInstrumentVoice(instrumentId) {
+  try {
+    const voice = getSoundTypeVoice(instrumentId);
+    if (voice && voice.releaseAll) { voice.releaseAll(); }
+  } catch (error) { /* ignore */ }
+  const entry = state.instruments[instrumentId];
+  if (!entry) { return; }
+  try { if (entry.fallback && entry.fallback.releaseAll) { entry.fallback.releaseAll(); } } catch (error) { /* ignore */ }
+  try { if (entry.sampler && entry.sampler.releaseAll) { entry.sampler.releaseAll(); } } catch (error) { /* ignore */ }
+}
+
 // Play a short musical phrase on the tapped instrument so you can hear it right away.
 async function previewInstrumentSequence(instrumentId) {
   const def = getInstrumentDef(instrumentId);
+  stopInstrumentPreview(); // stop whatever was previewing: only one instrument at a time
+  const token = state.previewToken;
   const ready = await startAudio();
-  if (!ready) {
+  if (!ready || token !== state.previewToken) {
     return;
   }
   ensureInstrument(instrumentId);
+  state.previewInstrument = instrumentId;
   if (def.recorded) {
     previewSample();
     return;
@@ -1200,9 +1283,11 @@ async function previewInstrumentSequence(instrumentId) {
   const bpm = Number(elements.tempo.value) || 120;
   const stepDur = (60 / bpm) / 2;
   if (instrumentId === "drums") {
-    const now = Tone.now() + 0.08;
     const hits = [[0, "kick"], [1, "hihat"], [2, "snare"], [3, "hihat"], [4, "kick"], [5, "hihat"], [6, "snare"], [7, "hihat"]];
-    hits.forEach(([pos, piece]) => playDrum(piece, now + pos * stepDur * 0.5, 0.85));
+    hits.forEach(([pos, piece]) => {
+      const timer = window.setTimeout(() => playDrum(piece, undefined, 0.85), pos * stepDur * 0.5 * 1000 + 60);
+      state.previewTimers.push(timer);
+    });
     return;
   }
   // Wait for the instrument's samples so the very first preview is audible.
@@ -1211,14 +1296,17 @@ async function previewInstrumentSequence(instrumentId) {
   } catch (error) {
     /* ignore */
   }
+  if (token !== state.previewToken) {
+    return; // a newer instrument preview superseded this one
+  }
   const bassy = instrumentId === "bass" || instrumentId === "cello";
   const root = bassy ? "C2" : "C4";
   const scale = musicalScale(root, "major");
   const phrase = bassy ? [0, 3, 4, 3, 0, 4] : [0, 2, 4, 7, 6, 4, 2, 0];
-  const now = Tone.now() + 0.08;
   phrase.forEach((degree, i) => {
     const note = scale[degree % scale.length];
-    playInstrument(instrumentId, note, def.duration || "8n", now + i * stepDur, 0.8);
+    const timer = window.setTimeout(() => playInstrument(instrumentId, note, def.duration || "8n", undefined, 0.8), i * stepDur * 1000 + 60);
+    state.previewTimers.push(timer);
   });
 }
 
@@ -1235,17 +1323,22 @@ function updateInstrumentSelection() {
   if (elements.testSample) {
     elements.testSample.hidden = false;
   }
-  const isRecorded = definition.recorded
-    && (state.sampleSamplers[definition.id] || state.pendingSampleBuffers[definition.id] || definition.sampleKey);
-  if (elements.sampleStretchWrap) {
-    elements.sampleStretchWrap.hidden = !isRecorded;
+  const isGuitar = isElectricGuitar(definition);
+  if (elements.guitarDistortWrap) {
+    elements.guitarDistortWrap.hidden = !isGuitar;
   }
-  if (elements.sampleStretch && isRecorded) {
-    const stretch = state.sampleStretch[definition.id] || 1;
-    elements.sampleStretch.value = String(stretch);
-    if (elements.sampleStretchValue) {
-      elements.sampleStretchValue.value = `${stretch.toFixed(2)}x`;
-    }
+  if (elements.guitarDistortSelect && isGuitar) {
+    elements.guitarDistortSelect.value = state.guitarDistortion || "clean";
+  }
+  const showAmpTone = !definition.vocal;
+  if (elements.genStyleWrap) {
+    elements.genStyleWrap.hidden = !showAmpTone;
+  }
+  if (elements.ampToneWrap) {
+    elements.ampToneWrap.hidden = !showAmpTone;
+  }
+  if (elements.ampToneSelect && showAmpTone) {
+    elements.ampToneSelect.value = state.ampTone[definition.id] || "flat";
   }
 }
 
@@ -1301,7 +1394,8 @@ function serializeProject() {
     scale: state.scale,
     selectedInstrument: state.selectedInstrument,
     soundType: elements.genSoundType ? elements.genSoundType.value : "sampled",
-    musicStyle: elements.genMusicStyle ? elements.genMusicStyle.value : "pop",
+    guitarDistortion: state.guitarDistortion || "clean",
+    ampTone: state.ampTone,
     fx,
     tracks: state.seqTracks
   };
@@ -1367,13 +1461,20 @@ function applyProject(project) {
   if (project.octave != null) { elements.octaveShift.value = String(project.octave); state.octaveOffset = Number(project.octave) || 0; }
   if (project.scale) { state.scale = project.scale; if (elements.scaleSelect) { elements.scaleSelect.value = project.scale; } }
   if (project.soundType && elements.genSoundType) { elements.genSoundType.value = project.soundType; }
-  if (project.musicStyle && elements.genMusicStyle) { elements.genMusicStyle.value = project.musicStyle; }
+  if (project.guitarDistortion) {
+    state.guitarDistortion = project.guitarDistortion;
+    if (elements.guitarDistortSelect) { elements.guitarDistortSelect.value = project.guitarDistortion; }
+  }
+  if (project.ampTone && typeof project.ampTone === "object") {
+    state.ampTone = { ...project.ampTone };
+  }
   const inputs = projectFxInputs();
   const fx = project.fx || {};
   Object.keys(inputs).forEach((key) => { if (inputs[key] && fx[key] != null) { inputs[key].value = String(fx[key]); } });
 
   state.bars = Math.max(2, Math.min(MAX_BARS, Number(project.bars) || DEFAULT_BARS));
   state.seqTracks = Array.isArray(project.tracks) ? project.tracks : [];
+  state.autoSong = false;
   seqUid = state.seqTracks.reduce((max, track) => Math.max(max, Number(track.uid) || 0), 0) + 1;
 
   if (elements.genSoundTypeSeq && elements.genSoundType) { elements.genSoundTypeSeq.value = elements.genSoundType.value; }
@@ -1386,6 +1487,7 @@ function applyProject(project) {
     Object.values(inputs).forEach((input) => { if (input) { input.dispatchEvent(new Event("input")); } });
     disposeSoundTypeSynths();
     preloadInstruments();
+    routeAllChannels();
   }
   const selId = project.selectedInstrument;
   selectInstrument(getInstrumentDef(selId) && instrumentDefs.some((d) => d.id === selId) ? selId : state.selectedInstrument);
@@ -1559,13 +1661,15 @@ function pressPianoKey(note) {
     speakLine("La", 1);
     return;
   }
-  // Sustain: stop the previous note, then hold this one until another key or Stop Playing.
-  stopSustainedNote();
+  // Polyphonic: keep every played tone ringing so several notes glue into a chord that sounds
+  // together (release them all with Stop Playing, or by switching instruments).
   const voice = getInstrumentVoice(definition.id);
   if (voice && typeof voice.triggerAttack === "function") {
     try {
+      const prev = state.heldNotes.get(note);
+      if (prev) { try { prev.voice.triggerRelease(prev.note, Tone.now()); } catch (releaseError) { /* ignore */ } }
       voice.triggerAttack(shifted, Tone.now(), 0.8);
-      state.sustain = { voice, note: shifted, keyNote: note };
+      state.heldNotes.set(note, { voice, note: shifted });
     } catch (error) {
       playInstrument(definition.id, [shifted], definition.duration, undefined, 0.8);
     }
@@ -1581,8 +1685,8 @@ function releasePianoKey(note) {
     return;
   }
   state.activeKeyNotes.delete(note);
-  // The sustaining key stays lit until another key is pressed or Stop Playing is clicked.
-  if (state.sustain && state.sustain.keyNote === note) {
+  // Held tones keep ringing (a glued chord) until Stop Playing; leave the key lit while it sounds.
+  if (state.heldNotes.has(note)) {
     return;
   }
   const keyElement = elements.piano.querySelector(`.key[data-note="${note}"]`);
@@ -1591,22 +1695,21 @@ function releasePianoKey(note) {
   }
 }
 
-// Release the currently held (sustained) note.
+// Release every held (ringing) note.
 function stopSustainedNote() {
-  if (state.sustain) {
-    const { voice, note, keyNote } = state.sustain;
-    try {
-      voice.triggerRelease(note, Tone.now());
-    } catch (error) {
-      try { voice.releaseAll(); } catch (releaseError) { /* ignore */ }
-    }
-    if (keyNote) {
+  if (state.heldNotes && state.heldNotes.size) {
+    state.heldNotes.forEach((entry, keyNote) => {
+      try {
+        entry.voice.triggerRelease(entry.note, Tone.now());
+      } catch (error) {
+        try { entry.voice.releaseAll(); } catch (releaseError) { /* ignore */ }
+      }
       const keyElement = elements.piano.querySelector(`.key[data-note="${keyNote}"]`);
       if (keyElement) {
         keyElement.classList.remove("is-down");
       }
-    }
-    state.sustain = null;
+    });
+    state.heldNotes.clear();
   }
   updateStopPlayingButton();
 }
@@ -1622,7 +1725,7 @@ function stopAllPlaying() {
 
 function updateStopPlayingButton() {
   if (elements.stopPlaying) {
-    elements.stopPlaying.disabled = !state.sustain;
+    elements.stopPlaying.disabled = !(state.heldNotes && state.heldNotes.size);
   }
 }
 
@@ -1630,6 +1733,19 @@ function updateStopPlayingButton() {
 function handleKeyDown(event) {
   if (event.repeat || event.target.matches("input, button, select")) {
     return;
+  }
+  // Copy / paste / duplicate the selected timeline clip (alongside dragging).
+  if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+    const combo = event.key.toLowerCase();
+    if (combo === "c" && state.selectedTrackUid != null) { copySelectedTrack(); event.preventDefault(); return; }
+    if (combo === "v" && state.clipboardTrack) { pasteClipboardTrack(); event.preventDefault(); return; }
+    if (combo === "d" && state.selectedTrackUid != null) {
+      const selected = state.seqTracks.find((entry) => entry.uid === state.selectedTrackUid);
+      if (selected) { duplicateTrack(selected); }
+      event.preventDefault();
+      return;
+    }
+    return; // don't let other Ctrl/Cmd combos trigger piano keys
   }
   const mapping = KEY_MAP.find((entry) => entry.key === event.key.toLowerCase());
   if (mapping) {
@@ -2024,7 +2140,9 @@ function exportSelectedSample() {
     } catch (error) { /* ignore */ }
   }
   const toneBuffer = state.sampleBuffers[id];
-  const audioBuffer = toneBuffer && typeof toneBuffer.get === "function" ? toneBuffer.get() : toneBuffer;
+  // Export from the untouched original so downloadAudio applies Pitch/Stretch exactly once.
+  const audioBuffer = state.sampleOriginals[id]
+    || (toneBuffer && typeof toneBuffer.get === "function" ? toneBuffer.get() : toneBuffer);
   if (!audioBuffer) {
     elements.statusText.textContent = "Sample not ready to export yet";
     return;
@@ -2101,6 +2219,7 @@ function buildSampleSampler(id, audioBuffer, options = {}) {
   if (!state.channels[id]) {
     state.channels[id] = new Tone.Channel({ volume: -4 }).connect(state.nodes.filter);
   }
+  routeInstrumentChannel(id);
   if (state.sampleSamplers[id]) {
     try {
       state.sampleSamplers[id].dispose();
@@ -2108,10 +2227,13 @@ function buildSampleSampler(id, audioBuffer, options = {}) {
       /* ignore */
     }
   }
-  const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+  // Keep the untouched original; play back through the global phase-vocoder Pitch/Stretch.
+  state.sampleOriginals[id] = audioBuffer;
+  const playbackBuffer = phaseVocoderProcess(audioBuffer);
+  const toneBuffer = new Tone.ToneAudioBuffer(playbackBuffer);
   state.sampleSamplers[id] = new Tone.Sampler({ C4: toneBuffer }).connect(state.channels[id]);
   state.sampleBuffers[id] = toneBuffer;
-  state.sampleDurations[id] = toneBuffer.duration || (audioBuffer && audioBuffer.duration) || 0;
+  state.sampleDurations[id] = toneBuffer.duration || (playbackBuffer && playbackBuffer.duration) || 0;
   if (state.sampleStretch[id] === undefined) {
     state.sampleStretch[id] = 1;
   }
@@ -2400,8 +2522,7 @@ function retileRegion(track) {
   const offset = track.regionOffset || 0;
   const pattern = new Array(total).fill(0);
   const stepNotes = {};
-  const globalTempo = Number(elements.tempo.value) || 120;
-  const scale = track.tempo ? globalTempo / track.tempo : 1; // <1 = faster clip, >1 = slower
+  const scale = 1; // all clips lock to the global tempo so separate tracks stay rhythmically in sync
   if (track.kind === "sample") {
     const unit = Math.max(1, Math.round(sampleRegionSteps(track.instrumentId) * scale));
     for (let i = 0; i < len; i += unit) {
@@ -2457,7 +2578,10 @@ function generateMelodicPart(instrumentId, rootNote, style) {
   track.region = true;
   track.tempo = Number(elements.tempo.value) || 120;
   track.phrase = buildMelodicPhrase(instrumentId, rootNote, 4, style);
-  track.regionLen = totalSteps();
+  // Drop as a block sized to its own phrase (e.g. 4 bars), not stretched across the whole loop,
+  // so it can be trimmed, expanded, copied and pasted individually.
+  track.regionStart = 0;
+  track.regionLen = Math.max(STEPS_PER_BAR, Math.min(track.phrase.len || (4 * STEPS_PER_BAR), totalSteps()));
   retileRegion(track);
   return track;
 }
@@ -2477,7 +2601,9 @@ function generateDrumPart(piece) {
   track.region = true;
   track.tempo = Number(elements.tempo.value) || 120;
   track.phrase = { len: STEPS_PER_BAR, stepsSet: new Set(per) };
-  track.regionLen = totalSteps();
+  // A 4-bar groove block (the 1-bar pattern tiles inside it) you can trim/expand/copy/paste.
+  track.regionStart = 0;
+  track.regionLen = Math.max(STEPS_PER_BAR, Math.min(4 * STEPS_PER_BAR, totalSteps()));
   retileRegion(track);
   return track;
 }
@@ -2523,56 +2649,82 @@ function makeLayeredVoice(voices) {
   };
 }
 
-// "Generate Music" (beside Rec Sample): make a musical clip for the selected instrument in
-// the chosen Music Style and drop it on the timeline as a draggable, tempo-tagged region.
-// Render a short piece of real music from the sample instruments (in the chosen style)
-// offline into an AudioBuffer, so Generate Music can save it as a new sample.
-async function renderStyleMusicBuffer(instrumentDef, style) {
-  const preset = GEN_STYLES[style] || GEN_STYLES.pop;
-  const STYLE_PROG = { pop: "pop", edm: "edm", electronic: "edm", techno: "minor", hiphop: "minor", rnb: "doowop", rock: "pop", funk: "minor", blues: "blues", jazz: "jazz", latin: "latin", reggae: "reggae", folk: "folk", ambient: "minor" };
-  const prog = PROG[STYLE_PROG[style]] || PROG.pop;
+// "Generate Music" (beside Rec Sample): make a musical clip for the selected instrument using
+// the chosen Sound Type and drop it on the timeline as a draggable, tempo-tagged region.
+// Render a short piece of real music from the sample instruments offline into an AudioBuffer,
+// so Generate Music can save it as a new sample.
+async function renderStyleMusicBuffer(instrumentDef, styleProfile) {
+  // Generate Music renders in the style of a featured artist (progression + mode + density);
+  // with no style it falls back to a neutral pop bed. Timbre still comes from the Sound Type.
+  const prog = PROG[styleProfile && styleProfile.progression] || PROG.pop;
+  const mode = (styleProfile && styleProfile.mode) || "major";
   const bpm = Number(elements.tempo.value) || 112;
   const secondsPerStep = (60 / bpm) / 4;
   const seconds = 8;
   const stepCount = Math.max(16, Math.floor(seconds / secondsPerStep));
   const renderSeconds = seconds + 1.6;
-  const density = preset.density != null ? preset.density : 0.55;
+  const density = (styleProfile && styleProfile.density != null) ? styleProfile.density : 0.6;
   const isDrums = instrumentDef.id === "drums";
+  const isSynth = !!instrumentDef.synth;
   const isMelodic = !!(instrumentDef.sample && instrumentDef.sample.kind === "melodic");
   // Only the SELECTED instrument plays — no backing band.
   const soloDef = isMelodic ? instrumentDef : (isDrums ? getInstrumentDef("drums") : getInstrumentDef("piano"));
   const soundType = elements.genSoundType ? elements.genSoundType.value : "sampled";
   const soundDef = GEN_SOUND_TYPES[soundType] || null;
-  const scale = musicalScale("C4", preset.mode || "major");
+  const scale = musicalScale("C4", mode);
   const rendered = await Tone.Offline(async () => {
     const reverb = new Tone.Reverb({ decay: 2.4, wet: 0.16 }).toDestination();
+    // Match the instrument's live tone: guitar distortion pedal -> amp tone -> reverb.
+    const toneStages = [];
+    const gtrKind = isElectricGuitar(instrumentDef) ? (state.guitarDistortion || "clean") : "clean";
+    if (gtrKind !== "clean") {
+      const chain = buildGuitarDistortionChain(gtrKind);
+      if (chain) { toneStages.push(chain); }
+    }
+    const ampPreset = state.ampTone[instrumentDef.id] || "flat";
+    if (ampPreset !== "flat") {
+      const chain = buildAmpToneChain(ampPreset);
+      if (chain) { toneStages.push(chain); }
+    }
+    let toneIn = reverb;
+    if (toneStages.length) {
+      for (let i = 0; i < toneStages.length - 1; i += 1) {
+        toneStages[i].output.connect(toneStages[i + 1].input);
+      }
+      toneStages[toneStages.length - 1].output.connect(reverb);
+      toneIn = toneStages[0].input;
+    }
     let lead = null;
     let drums = null;
     let drumKit = null;
     if (isDrums) {
       // Instrument (real kit) + Sound Type (synth kit) + Style (groove), layered together.
-      drums = new Tone.Players({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(reverb);
+      drums = new Tone.Players({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(toneIn);
       drums.volume.value = soundDef ? -7 : -2;
       if (soundDef) {
-        drumKit = buildSynthDrumKit(soundType, reverb);
+        drumKit = buildSynthDrumKit(soundType, toneIn);
       }
+    } else if (isSynth) {
+      // Synth-only keyboard/electric-piano: render with its own synth voice.
+      lead = instrumentDef.fallback().connect(toneIn);
+      lead.volume.value = -2;
     } else if (soundDef) {
-      let dest = reverb;
+      let dest = toneIn;
       if (soundDef.dist > 0) {
-        dest = new Tone.Distortion({ distortion: soundDef.dist, wet: 0.5 }).connect(reverb);
+        dest = new Tone.Distortion({ distortion: soundDef.dist, wet: 0.5 }).connect(toneIn);
       }
       const synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: soundDef.osc }, envelope: soundDef.envelope }).connect(dest);
       synth.volume.value = soundDef.volume;
       // Layer the real INSTRUMENT sample together with the Sound Type synth.
       const layers = [synth];
       if (isMelodic) {
-        const sampler = new Tone.Sampler({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(reverb);
+        const sampler = new Tone.Sampler({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(toneIn);
         sampler.volume.value = -2;
         layers.push(sampler);
       }
       lead = layers.length > 1 ? makeLayeredVoice(layers) : synth;
     } else {
-      lead = new Tone.Sampler({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(reverb);
+      lead = new Tone.Sampler({ urls: soloDef.sample.urls, baseUrl: soloDef.sample.baseUrl }).connect(toneIn);
       lead.volume.value = -1;
     }
     await Tone.loaded();
@@ -2588,7 +2740,10 @@ async function renderStyleMusicBuffer(instrumentDef, style) {
       if (drumKit) { drumKit.trigger(piece, at, vel); }
       if (drums && drums.has(piece)) { drums.player(piece).start(at); }
     };
-    let walk = Math.floor(scale.length / 3);
+    // Generate Music picks a fresh melody every time (one of 200 rhythm x contour combos),
+    // so no two generated samples repeat the same tune.
+    const melody = leadMelodyFor(nextMelodyIndex());
+    let contourPos = 0;
     for (let step = 0; step < stepCount; step += 1) {
       const t = step * secondsPerStep;
       const inBar = step % 16;
@@ -2598,14 +2753,16 @@ async function renderStyleMusicBuffer(instrumentDef, style) {
         if (inBar === 4 || inBar === 12) { hitDrum("snare", "s", t, 0.9); }
         if (inBar % 2 === 0) { hitDrum("hihat", "h", t, 0.7); }
       } else if (lead) {
-        // Chords + melody, all on the selected instrument.
+        // Chord pad at the top of each bar.
         if (inBar === 0) {
           lead.triggerAttackRelease(chord.notes, "2n", nextTime("l", t), 0.4);
         }
-        if (inBar % 2 === 0 && Math.random() < density) {
-          const move = (Math.random() < 0.5 ? 1 : -1) * (Math.random() < 0.3 ? 2 : 1);
-          walk = ((walk + move) % scale.length + scale.length) % scale.length;
-          lead.triggerAttackRelease(scale[walk], "8n", nextTime("l", t), 0.85);
+        // Melody follows the chosen melody's rhythm + contour over the scale.
+        if (melody.rhythm.includes(inBar) && Math.random() < Math.max(0.75, density)) {
+          const degree = melody.contour[contourPos % melody.contour.length];
+          contourPos += 1;
+          const note = scale[(degree * 2) % scale.length];
+          lead.triggerAttackRelease(note, "8n", nextTime("l", t), 0.85);
         }
       }
     }
@@ -2635,15 +2792,29 @@ function normalizeBuffer(buffer, target = 0.95) {
   return buffer;
 }
 
-// "Generate Music" makes real music from the sample instruments (in the chosen style) and
-// adds it as a new sample in the instrument list.
+// "Generate Music" makes real music from the sample instruments using the chosen Sound Type
+// and adds it as a new sample in the instrument list.
+// Original song-title ideas: a generated sample in a chosen artist style is named like one of
+// their songs (e.g. "Queen — Midnight Rhapsody").
+const SONG_TITLES = [
+  "Midnight Rhapsody", "Golden Horizon", "Electric Mirage", "Velvet Thunder", "Neon Skyline",
+  "Paper Lanterns", "Silver Static", "Crimson Echo", "Faded Polaroid", "Wildfire Heart",
+  "Chasing Comets", "Glass Cathedral", "Moonlit Avenue", "Broken Compass", "Aurora Drive",
+  "Concrete Roses", "Gravity Waves", "Amber Afterglow", "Restless Neon", "Diamond Rainfall",
+  "Parallel Skies", "Sapphire Nights", "Endless Reverie", "Hollow Echoes"
+];
+
 async function generateMusicForSelected() {
   const id = state.selectedInstrument;
   const def = getInstrumentDef(id);
-  const style = elements.genMusicStyle ? elements.genMusicStyle.value : "pop";
-  const soundType = elements.genSoundType ? elements.genSoundType.value : "sampled";
-  const styleLabel = GEN_STYLE_LABELS[style] || style;
-  const soundTag = soundType !== "sampled" ? ` ${soundType.charAt(0).toUpperCase()}${soundType.slice(1)}` : "";
+  const soundType = currentSoundType();
+  const soundName = soundType.charAt(0).toUpperCase() + soundType.slice(1);
+  // Render the sample in the chosen Style (beside Amp Tone) — random featured artist for "Surprise Me".
+  const styleChoice = elements.genStyleSelect ? elements.genStyleSelect.value : "random";
+  const artistId = (styleChoice !== "random" && (ARTIST_PROFILES[styleChoice] || genreProfiles[styleChoice]))
+    ? styleChoice
+    : pick(Object.keys(ARTIST_PROFILES));
+  const artist = ARTIST_PROFILES[artistId] || genreProfiles[artistId];
   const ready = await startAudio();
   if (!ready) {
     return;
@@ -2655,11 +2826,18 @@ async function generateMusicForSelected() {
     button.innerHTML = `<i data-lucide="loader"></i><span>Making\u2026</span>`;
     refreshIcons();
   }
-  elements.statusText.textContent = `Generating ${styleLabel}${soundTag} music\u2026`;
+  elements.statusText.textContent = `Generating ${artist.name} ${soundName} music\u2026`;
   try {
-    const buffer = await renderStyleMusicBuffer(def, style);
-    const baseName = (def.sample && def.sample.kind === "melodic") ? def.short : (def.id === "drums" ? "Drums" : "Music");
-    const name = `${styleLabel}${soundTag} ${baseName}`.slice(0, 24);
+    const buffer = await renderStyleMusicBuffer(def, artist);
+    const styleSelected = styleChoice !== "random" && (ARTIST_PROFILES[styleChoice] || genreProfiles[styleChoice]);
+    let name;
+    if (styleSelected) {
+      // A specific artist style is chosen -> title the clip like one of their songs.
+      name = `${artist.name} \u2014 ${pick(SONG_TITLES)}`.slice(0, 30);
+    } else {
+      const baseName = (def.sample && def.sample.kind === "melodic") ? def.short : (def.id === "drums" ? "Drums" : "Music");
+      name = `${artist.name} ${baseName}`.slice(0, 24);
+    }
     await addSampleBuffer(buffer, name, { autoRename: false, persist: true });
     const newId = state.selectedInstrument;
     startSamplePreview(newId, getInstrumentDef(newId));
@@ -3032,15 +3210,115 @@ function addTrackFromBuilder() {
   }
   state.seqTracks.push(track);
   ensureInstrument(track.instrumentId);
+  markSongEdited();
   renderSequencer();
   const grid = elements.sequenceGrid;
   grid.scrollTop = grid.scrollHeight;
-  elements.statusText.textContent = "Added a musical part across the loop";
+  elements.statusText.textContent = "Added a musical part";
 }
 
 function removeTrack(uid) {
   state.seqTracks = state.seqTracks.filter((track) => track.uid !== uid);
+  if (state.selectedTrackUid === uid) { state.selectedTrackUid = null; }
+  markSongEdited();
   renderSequencer();
+}
+
+// ---- Copy / paste timeline tracks (works alongside dragging) ---------------------------
+// Deep-copy a track so the clone shares no arrays/objects with the original.
+function cloneTrack(track) {
+  seqUid += 1;
+  const copy = Object.assign({}, track, { uid: seqUid });
+  copy.pattern = (track.pattern || []).slice();
+  if (track.stepNotes) {
+    copy.stepNotes = {};
+    Object.keys(track.stepNotes).forEach((key) => { copy.stepNotes[key] = track.stepNotes[key].slice(); });
+  }
+  if (track.stepText) { copy.stepText = Object.assign({}, track.stepText); }
+  if (track.notes) { copy.notes = track.notes.slice(); }
+  if (track.lyricPool) { copy.lyricPool = track.lyricPool.slice(); }
+  if (track.phrase) {
+    copy.phrase = Object.assign({}, track.phrase);
+    if (track.phrase.notes) {
+      copy.phrase.notes = {};
+      Object.keys(track.phrase.notes).forEach((key) => { copy.phrase.notes[key] = track.phrase.notes[key].slice(); });
+    }
+    if (track.phrase.stepsSet) { copy.phrase.stepsSet = new Set(track.phrase.stepsSet); }
+  }
+  return copy;
+}
+
+// Highlight the selected track row (used by copy/paste keyboard shortcuts).
+function selectTrack(uid) {
+  state.selectedTrackUid = uid;
+  const rows = elements.sequenceGrid ? elements.sequenceGrid.querySelectorAll(".sequence-row") : [];
+  rows.forEach((row, index) => {
+    const track = state.seqTracks[index];
+    row.classList.toggle("is-selected", !!track && track.uid === uid);
+  });
+}
+
+// Insert a deep copy of `data` right after the given track. Place the copy just after the
+// source block when there is room (so the paste is visible); otherwise overlay it on a new row.
+function insertTrackCopy(data, insertAfterUid) {
+  if (!data) { return null; }
+  const copy = cloneTrack(data);
+  const srcStart = copy.regionStart || 0;
+  const hasWindow = copy.regionLen != null;
+  const winLen = Math.max(1, hasWindow ? copy.regionLen : (totalSteps() - srcStart));
+  // Drop the copy as its OWN draggable block, offset one block-length after the source (growing
+  // the timeline if needed) so it never lands on top of the original.
+  let newStart = srcStart + winLen;
+  const neededBars = Math.ceil((newStart + winLen) / STEPS_PER_BAR);
+  if (neededBars > state.bars && neededBars <= MAX_BARS) {
+    setBars(neededBars);
+  }
+  const total = totalSteps();
+  if (newStart + winLen > total) {
+    newStart = Math.max(0, total - winLen); // no more room: sit flush at the end
+  }
+  const delta = newStart - srcStart;
+  copy.regionStart = newStart;
+  copy.regionLen = Math.min(winLen, total - newStart);
+  if (copy.region) {
+    retileRegion(copy);
+  } else {
+    if (copy.pattern.length < total) {
+      copy.pattern = copy.pattern.concat(new Array(total - copy.pattern.length).fill(0));
+    }
+    if (delta !== 0) { shiftTrackContent(copy, delta); }
+  }
+  const idx = state.seqTracks.findIndex((track) => track.uid === insertAfterUid);
+  const insertAt = idx >= 0 ? idx + 1 : state.seqTracks.length;
+  state.seqTracks.splice(insertAt, 0, copy);
+  ensureInstrument(copy.instrumentId);
+  state.selectedTrackUid = copy.uid;
+  markSongEdited();
+  renderSequencer();
+  return copy;
+}
+
+function duplicateTrack(track) {
+  const copy = insertTrackCopy(track, track.uid);
+  if (copy) {
+    elements.statusText.textContent = "Duplicated clip \u2014 drag it, or press Ctrl+V to paste again";
+  }
+}
+
+function copySelectedTrack() {
+  const track = state.seqTracks.find((entry) => entry.uid === state.selectedTrackUid);
+  if (!track) {
+    elements.statusText.textContent = "Click a track to select it, then Ctrl+C";
+    return;
+  }
+  state.clipboardTrack = cloneTrack(track);
+  elements.statusText.textContent = "Copied clip \u2014 press Ctrl+V to paste";
+}
+
+function pasteClipboardTrack() {
+  if (!state.clipboardTrack) { return; }
+  insertTrackCopy(state.clipboardTrack, state.selectedTrackUid);
+  elements.statusText.textContent = "Pasted clip";
 }
 
 /* ---------- Sequencer grid ---------- */
@@ -3089,40 +3367,31 @@ function renderSequencer() {
   state.seqTracks.forEach((track) => {
     const row = document.createElement("div");
     row.className = "sequence-row";
+    if (track.uid === state.selectedTrackUid) { row.classList.add("is-selected"); }
     row.style.gridTemplateColumns = template;
     row.style.setProperty("--track-color", track.color);
 
     const nameCell = document.createElement("span");
     nameCell.className = "track-name";
+    nameCell.addEventListener("click", () => selectTrack(track.uid));
     const label = trackLabel(track);
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "track-copy";
+    copyBtn.title = "Duplicate this clip (copy & paste)";
+    copyBtn.setAttribute("aria-label", `Duplicate ${label.name}`);
+    copyBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>';
+    copyBtn.addEventListener("click", (event) => { event.stopPropagation(); duplicateTrack(track); });
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "track-remove";
     remove.textContent = "×";
     remove.title = "Remove track";
     remove.setAttribute("aria-label", `Remove ${label.name}`);
-    remove.addEventListener("click", () => removeTrack(track.uid));
+    remove.addEventListener("click", (event) => { event.stopPropagation(); removeTrack(track.uid); });
     nameCell.innerHTML = `<span class="track-dot"></span><span class="track-label">${label.name}${label.sub ? ` <span class="track-sub">${label.sub}</span>` : ""}</span>`;
-    if (track.region) {
-      const tempoInput = document.createElement("input");
-      tempoInput.type = "number";
-      tempoInput.className = "track-tempo";
-      tempoInput.min = "40";
-      tempoInput.max = "260";
-      tempoInput.step = "1";
-      tempoInput.value = String(Math.round(track.tempo || Number(elements.tempo.value) || 120));
-      tempoInput.title = "Clip tempo (BPM)";
-      tempoInput.addEventListener("click", (event) => event.stopPropagation());
-      tempoInput.addEventListener("change", () => {
-        const value = Number(tempoInput.value);
-        if (Number.isFinite(value) && value >= 40) {
-          track.tempo = value;
-          retileRegion(track);
-          renderSequencer();
-        }
-      });
-      nameCell.append(tempoInput);
-    }
+    // All tracks share the single global tempo so separate clips stay rhythmically locked together.
+    nameCell.append(copyBtn);
     nameCell.append(remove);
     row.append(nameCell);
 
@@ -3167,6 +3436,21 @@ function renderSequencer() {
       body.style.width = `${widthPx}px`;
       body.addEventListener("pointerdown", (event) => startRegionMove(event, track, row));
       row.append(body);
+    } else {
+      // Plain tracks (Soundtrap-style block): a visible outline + a thin draggable "move" header
+      // at the top so you can slide the whole block; the cells below stay click-editable.
+      const outline = document.createElement("div");
+      outline.className = "region-outline";
+      outline.style.left = `${leftPx}px`;
+      outline.style.width = `${widthPx}px`;
+      row.append(outline);
+      const mover = document.createElement("div");
+      mover.className = "region-move";
+      mover.title = "Drag to move the block \u00b7 drag either edge to trim or expand";
+      mover.style.left = `${leftPx}px`;
+      mover.style.width = `${widthPx}px`;
+      mover.addEventListener("pointerdown", (event) => startTrackMove(event, track, row));
+      row.append(mover);
     }
     const leftHandle = document.createElement("div");
     leftHandle.className = "region-handle region-handle-left";
@@ -3205,6 +3489,7 @@ function onSeqGridClick(event) {
   }
   track.pattern[step] = track.pattern[step] ? 0 : 1;
   cell.classList.toggle("is-active", Boolean(track.pattern[step]));
+  markSongEdited();
 }
 
 // GarageBand-style clip editing: drag either edge to trim/extend, drag the body to move.
@@ -3261,6 +3546,7 @@ function startRegionResize(event, track, row, edge) {
 function startRegionMove(event, track, row) {
   event.preventDefault();
   event.stopPropagation();
+  selectTrack(track.uid);
   const body = event.currentTarget;
   const startX = event.clientX;
   const startPos0 = Math.max(0, track.regionStart || 0);
@@ -3296,6 +3582,83 @@ function startRegionMove(event, track, row) {
   body.addEventListener("pointercancel", onUp);
 }
 
+// Soundtrap-style block move for PLAIN tracks: drag the top "move" header to slide the whole
+// block; its musical content (pattern/notes/lyrics) shifts with it and the song grows if needed.
+function shiftTrackContent(track, deltaSteps) {
+  const len = track.pattern.length;
+  const newPattern = new Array(len).fill(0);
+  const newNotes = track.stepNotes ? {} : null;
+  const newText = track.stepText ? {} : null;
+  for (let i = 0; i < len; i += 1) {
+    const j = i + deltaSteps;
+    if (j >= 0 && j < len) {
+      newPattern[j] = track.pattern[i];
+      if (newNotes && track.stepNotes[i]) { newNotes[j] = track.stepNotes[i]; }
+      if (newText && track.stepText[i]) { newText[j] = track.stepText[i]; }
+    }
+  }
+  track.pattern = newPattern;
+  if (newNotes) { track.stepNotes = newNotes; }
+  if (newText) { track.stepText = newText; }
+}
+
+function commitTrackMove(track, oldStart, newStart, len) {
+  const delta = newStart - oldStart;
+  if (delta === 0) {
+    return;
+  }
+  const neededBars = Math.ceil((newStart + len) / STEPS_PER_BAR);
+  if (neededBars > state.bars) {
+    setBars(neededBars); // moving past the end grows the song (pads patterns)
+  }
+  shiftTrackContent(track, delta);
+  track.regionStart = Math.max(0, newStart);
+  track.regionLen = Math.min(len, totalSteps() - track.regionStart);
+  markSongEdited();
+  renderSequencer();
+  const bar = Math.round(track.regionStart / STEPS_PER_BAR) + 1;
+  elements.statusText.textContent = `Block moved to bar ${bar}`;
+}
+
+function startTrackMove(event, track, row) {
+  event.preventDefault();
+  event.stopPropagation();
+  selectTrack(track.uid);
+  const mover = event.currentTarget;
+  const startX = event.clientX;
+  const total = totalSteps();
+  const winStart0 = Math.max(0, track.regionStart || 0);
+  const winLen0 = Math.min(track.regionLen != null ? track.regionLen : (total - winStart0), total - winStart0);
+  const maxStart = MAX_BARS * STEPS_PER_BAR - winLen0;
+  let previewStart = winStart0;
+  try { mover.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+  mover.classList.add("is-grabbing");
+
+  const onMove = (moveEvent) => {
+    const dSteps = Math.round((moveEvent.clientX - startX) / STEP_W);
+    const dBars = Math.round(dSteps / STEPS_PER_BAR) * STEPS_PER_BAR;
+    const start = Math.max(0, Math.min(maxStart, winStart0 + dBars));
+    if (start === previewStart) {
+      return;
+    }
+    previewStart = start;
+    updateRegionPreviewBlock(row, track, start, winLen0);
+    const bar = Math.round(start / STEPS_PER_BAR) + 1;
+    elements.statusText.textContent = `Block start: bar ${bar}`;
+  };
+  const onUp = () => {
+    mover.removeEventListener("pointermove", onMove);
+    mover.removeEventListener("pointerup", onUp);
+    mover.removeEventListener("pointercancel", onUp);
+    try { mover.releasePointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+    mover.classList.remove("is-grabbing");
+    commitTrackMove(track, winStart0, previewStart, winLen0);
+  };
+  mover.addEventListener("pointermove", onMove);
+  mover.addEventListener("pointerup", onUp);
+  mover.addEventListener("pointercancel", onUp);
+}
+
 // Live drag feedback: move the block + handles and repaint the window cells.
 function updateRegionPreviewBlock(row, track, start, len) {
   const cells = row.querySelectorAll(".step-cell");
@@ -3322,6 +3685,16 @@ function updateRegionPreviewBlock(row, track, start, len) {
   if (rightHandle) {
     rightHandle.style.left = `${leftPx + widthPx - 6}px`;
   }
+  const outline = row.querySelector(".region-outline");
+  if (outline) {
+    outline.style.left = `${leftPx}px`;
+    outline.style.width = `${widthPx}px`;
+  }
+  const mover = row.querySelector(".region-move");
+  if (mover) {
+    mover.style.left = `${leftPx}px`;
+    mover.style.width = `${widthPx}px`;
+  }
 }
 
 // Snap to bars, grow the song if the clip runs past the end, and re-tile the region.
@@ -3342,6 +3715,7 @@ function commitRegion(track, start, len, offset) {
   if (track.region) {
     retileRegion(track);
   }
+  markSongEdited();
   renderSequencer();
   const bars = Math.round(track.regionLen / STEPS_PER_BAR);
   const startBar = Math.round(track.regionStart / STEPS_PER_BAR) + 1;
@@ -3619,7 +3993,8 @@ function speakLine(text, pitch) {
     }
     // Sine sound curve: shape the pitch as a sine wave that rises and falls across the lines.
     if (state.voiceSineDepth > 0) {
-      state.voiceSinePhase = (state.voiceSinePhase || 0) + (state.voiceSineRate || 0.5) * Math.PI;
+      // Advance by a non-multiple-of-PI step so the sine keeps moving at every rate (incl. 1, 2).
+      state.voiceSinePhase = (state.voiceSinePhase || 0) + Math.PI * (0.35 + (state.voiceSineRate || 0.5) * 0.3);
       basePitch += state.voiceSineDepth * 0.6 * Math.sin(state.voiceSinePhase);
     }
     if (state.voiceMode === "random") {
@@ -3645,7 +4020,9 @@ function speakLine(text, pitch) {
 
 function toggleVocals() {
   state.vocalsOn = !state.vocalsOn;
-  elements.vocalsToggle.setAttribute("aria-pressed", String(state.vocalsOn));
+  if (elements.vocalsToggle) {
+    elements.vocalsToggle.setAttribute("aria-pressed", String(state.vocalsOn));
+  }
   if (!state.vocalsOn && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
@@ -3822,15 +4199,106 @@ function buildChords(inst, style, form, chordAt) {
   });
 }
 
-function buildLead(inst, form, chordAt) {
-  return buildTrack(inst, { notes: ["C4"] }, form, (s, bar, b) => {
-    if (s !== "chorus" && s !== "solo" && s !== "hook" && s !== "head") {
+// ---- Randomize Song: 200 distinct lead melodies -------------------------------------------
+// A melody = a RHYTHM (which 16th-note steps of a bar sound) + a CONTOUR (indices into a 5-note
+// melodic pool built from the current chord). 20 rhythms x 10 contours = 200 melodies;
+// nextMelodyIndex() picks a fresh one on every Randomize (never the same twice in a row).
+function getMelodyBank() {
+  if (!state.melodyBank) {
+    state.melodyBank = {
+      rhythms: [
+        [0, 4, 8, 12], [0, 2, 4, 6, 8, 10, 12, 14], [0, 3, 6, 8, 11, 14], [0, 4, 6, 10, 12],
+        [2, 6, 10, 14], [0, 2, 5, 8, 10, 13], [0, 4, 7, 8, 12, 15], [0, 1, 4, 8, 9, 12],
+        [0, 6, 8, 14], [0, 3, 4, 8, 11, 12, 15], [0, 2, 4, 8, 12, 14], [4, 8, 10, 12],
+        [0, 5, 8, 10, 15], [0, 2, 6, 8, 10, 14], [0, 4, 8, 10, 12, 14], [1, 3, 5, 7, 9, 11, 13, 15],
+        [0, 3, 6, 9, 12, 15], [0, 4, 8, 11, 14], [0, 2, 4, 6, 10, 12], [0, 7, 8, 12, 15]
+      ],
+      contours: [
+        [0, 1, 2, 1, 3, 2], [0, 2, 1, 3, 2, 4], [2, 1, 0, 1, 2, 3], [0, 0, 2, 2, 4, 3],
+        [4, 3, 2, 1, 2, 0], [0, 2, 4, 2, 1, 3], [1, 0, 2, 3, 4, 2], [0, 3, 2, 4, 1, 2],
+        [4, 2, 3, 1, 0, 2], [0, 1, 3, 2, 4, 1]
+      ]
+    };
+  }
+  return state.melodyBank;
+}
+function nextMelodyIndex() {
+  const bank = getMelodyBank();
+  const count = bank.rhythms.length * bank.contours.length;
+  let index = randInt(0, count - 1);
+  if (index === state.lastMelodyIndex) {
+    index = (index + 1) % count;
+  }
+  state.lastMelodyIndex = index;
+  return index;
+}
+function leadMelodyFor(index) {
+  const bank = getMelodyBank();
+  return {
+    rhythm: bank.rhythms[index % bank.rhythms.length],
+    contour: bank.contours[Math.floor(index / bank.rhythms.length) % bank.contours.length]
+  };
+}
+function pickLeadInstrument() {
+  return pick(["piano", "electric-piano", "keyboard", "flute", "trumpet", "saxophone", "violin"]);
+}
+
+// Per-artist signature melodies (original motifs — NOT copied from real songs): rhythm = which
+// 16th-note steps sound, contour = indices into the 5-note melodic pool. Randomize uses the chosen
+// artist's motif so each artist sounds distinct; a small random transpose keeps it fresh each time.
+const ARTIST_MELODIES = {
+  "taylor-swift": { rhythm: [0, 4, 6, 8, 12, 14], contour: [0, 1, 2, 1, 3, 2] },
+  "ariana-grande": { rhythm: [0, 2, 4, 7, 8, 10, 12], contour: [2, 4, 3, 4, 2, 1, 0] },
+  "the-weeknd": { rhythm: [0, 3, 6, 10, 12], contour: [4, 3, 2, 3, 1] },
+  "billie-eilish": { rhythm: [0, 6, 8, 14], contour: [1, 0, 1, 2] },
+  "justin-bieber": { rhythm: [0, 4, 8, 10, 12], contour: [0, 2, 1, 2, 3] },
+  "bruno-mars": { rhythm: [2, 4, 6, 8, 10, 12, 14], contour: [0, 1, 2, 3, 2, 1, 0] },
+  "lady-gaga": { rhythm: [0, 2, 4, 6, 8, 10, 12, 14], contour: [0, 2, 4, 2, 0, 2, 4, 2] },
+  "rihanna": { rhythm: [0, 4, 6, 8, 12], contour: [2, 1, 2, 0, 1] },
+  "dua-lipa": { rhythm: [0, 2, 4, 8, 10, 12], contour: [0, 1, 0, 2, 1, 3] },
+  "harry-styles": { rhythm: [0, 4, 8, 12, 14], contour: [0, 2, 4, 3, 1] },
+  "drake": { rhythm: [0, 3, 6, 8, 11, 14], contour: [1, 0, 1, 0, 2, 1] },
+  "eminem": { rhythm: [0, 2, 3, 4, 6, 8, 10, 12, 14], contour: [0, 0, 1, 0, 0, 1, 0, 2, 1] },
+  "kendrick-lamar": { rhythm: [0, 3, 4, 8, 11, 12], contour: [2, 1, 3, 0, 2, 1] },
+  "kanye-west": { rhythm: [0, 4, 8, 10, 12], contour: [3, 2, 4, 3, 1] },
+  "sza": { rhythm: [0, 4, 7, 8, 12], contour: [2, 3, 1, 2, 0] },
+  "post-malone": { rhythm: [0, 4, 8, 12], contour: [1, 2, 0, 1] },
+  "travis-scott": { rhythm: [0, 6, 8, 10, 14], contour: [4, 4, 3, 4, 2] },
+  "nicki-minaj": { rhythm: [0, 2, 4, 6, 8, 10, 12, 14], contour: [0, 1, 0, 2, 0, 3, 0, 1] },
+  "bad-bunny": { rhythm: [0, 3, 6, 8, 11, 14], contour: [1, 2, 1, 3, 2, 0] },
+  "shakira": { rhythm: [0, 2, 4, 6, 10, 12], contour: [2, 3, 4, 2, 1, 0] },
+  "bts": { rhythm: [0, 4, 6, 8, 12, 14], contour: [0, 2, 1, 3, 2, 4] },
+  "j-balvin": { rhythm: [0, 4, 8, 11, 12], contour: [1, 0, 2, 1, 3] },
+  "karol-g": { rhythm: [0, 3, 6, 10, 14], contour: [2, 1, 3, 2, 0] },
+  "daddy-yankee": { rhythm: [0, 2, 6, 8, 10, 14], contour: [1, 1, 2, 1, 3, 2] },
+  "coldplay": { rhythm: [0, 4, 8, 12], contour: [0, 2, 4, 2] },
+  "arctic-monkeys": { rhythm: [0, 2, 4, 8, 10, 12], contour: [2, 1, 0, 2, 1, 3] },
+  "imagine-dragons": { rhythm: [0, 4, 8, 10, 12, 14], contour: [0, 0, 2, 2, 4, 3] },
+  "michael-jackson": { rhythm: [2, 4, 6, 8, 10, 12, 14], contour: [0, 2, 1, 3, 2, 4, 3] },
+  "the-beatles": { rhythm: [0, 4, 6, 8, 12], contour: [0, 2, 4, 3, 1] },
+  "queen": { rhythm: [0, 2, 4, 6, 8, 10, 12, 14], contour: [0, 1, 2, 3, 4, 3, 2, 1] }
+};
+
+function buildLead(inst, form, chordAt, motif) {
+  const melody = motif || leadMelodyFor(nextMelodyIndex());
+  const shift = randInt(0, 2); // small per-song transpose so the same artist never repeats exactly
+  return buildTrack(inst, { notes: ["C4"] }, form, (s, bar) => {
+    if (!["verse", "chorus", "hook", "head", "solo"].includes(s)) {
       return null;
     }
     const tones = chordAt(bar).notes;
-    const steps = [0, 4, 8, 12].filter(() => chance(0.7));
+    // 5-note melodic pool spanning ~1.5 octaves above the chord.
+    const pool = tones.map(raiseOctave).concat(tones.slice(0, 2).map((n) => raiseOctave(raiseOctave(n))));
+    const steps = [];
     const notes = {};
-    steps.forEach((st, i) => { notes[st] = [raiseOctave(tones[(b + i) % tones.length])]; });
+    melody.rhythm.forEach((st, i) => {
+      if (!chance(0.9)) {
+        return;
+      }
+      steps.push(st);
+      const degree = (melody.contour[i % melody.contour.length] + shift) % pool.length;
+      notes[st] = [pool[degree]];
+    });
     return { steps, notes };
   });
 }
@@ -3868,7 +4336,7 @@ function buildVocals(theme, form) {
   return track;
 }
 
-function buildSongFromProfile(profile) {
+function buildSongFromProfile(profile, profileId) {
   const bars = chosenSongLength(profile);
   const form = buildForm(bars);
   const prog = PROG[profile.progression] || PROG.pop;
@@ -3892,12 +4360,10 @@ function buildSongFromProfile(profile) {
       tracks.push(padTrack);
     }
   }
-  if (profile.lead) {
-    tracks.push(buildLead(profile.lead, form, chordAt));
-  }
-  if (profile.lyrics) {
-    tracks.push(buildVocals(profile.lyrics, form));
-  }
+  // Always draw a FRESH lead melody from the 200-melody bank so Randomize never repeats the same
+  // tune (each artist's character still comes from its kit/bass/chords/tempo). No vocals here.
+  const motif = profile.melody || null;
+  tracks.push(buildLead(profile.lead || pickLeadInstrument(), form, chordAt, motif));
 
   return { name: profile.name, group: profile.group, tempo, swing: profile.swing || 0, bars: formBars(form), tracks };
 }
@@ -3928,16 +4394,147 @@ const genreProfiles = {
   "reggae": { name: "Reggae / Dancehall", group: "Global & Regional", tempo: [70, 92], swing: 0.1, kit: "reggae", bass: "offbeat", chord: "stab", chordInst: "organ", progression: "reggae", lead: "trumpet", lyrics: "reggae", bars: 24 }
 };
 
+// ---- Featured artists: Randomize Song + Generate Music create music in their style ----------
+// Each artist maps to musical params (tempo/kit/bass/chord/progression/mode/lead) so a song or
+// sample renders "in the style of" that artist. Values reuse the KIT / PROG / instrument vocab.
+const ARTIST_PROFILES = {
+  "taylor-swift": { name: "Taylor Swift", group: "Pop & R&B", tempo: [95, 120], swing: 0.02, kit: "fourfloor", bass: "root8", chord: "half", chordInst: "piano", progression: "pop", mode: "major", lead: "piano", bars: 24 },
+  "ariana-grande": { name: "Ariana Grande", group: "Pop & R&B", tempo: [90, 112], swing: 0.08, kit: "boombap", bass: "syncop", chord: "half", chordInst: "piano", progression: "doowop", mode: "major", lead: "flute", bars: 24 },
+  "the-weeknd": { name: "The Weeknd", group: "Pop & R&B", tempo: [100, 120], swing: 0, kit: "fourfloor", bass: "root8", chord: "arp", chordInst: "organ", progression: "minor", mode: "minor", pad: "organ", lead: "saxophone", bars: 24 },
+  "billie-eilish": { name: "Billie Eilish", group: "Pop & R&B", tempo: [80, 100], swing: 0.05, kit: "boombap", bass: "sub", chord: "pad", chordInst: "organ", progression: "minor", mode: "minor", pad: "violin", bars: 20 },
+  "justin-bieber": { name: "Justin Bieber", group: "Pop & R&B", tempo: [100, 120], swing: 0.03, kit: "fourfloor", bass: "root8", chord: "stab", chordInst: "piano", progression: "pop", mode: "major", lead: "flute", bars: 24 },
+  "bruno-mars": { name: "Bruno Mars", group: "Pop & R&B", tempo: [108, 128], swing: 0.12, kit: "backbeat", bass: "syncop", chord: "stab", chordInst: "organ", progression: "doowop", mode: "major", lead: "trumpet", bars: 24 },
+  "lady-gaga": { name: "Lady Gaga", group: "Pop & R&B", tempo: [120, 130], swing: 0, kit: "fourfloor", bass: "root8", chord: "arp", chordInst: "organ", progression: "edm", mode: "minor", pad: "violin", lead: "saxophone", bars: 24 },
+  "rihanna": { name: "Rihanna", group: "Pop & R&B", tempo: [100, 128], swing: 0.04, kit: "fourfloor", bass: "root8", chord: "stab", chordInst: "piano", progression: "minor", mode: "minor", lead: "flute", bars: 24 },
+  "dua-lipa": { name: "Dua Lipa", group: "Pop & R&B", tempo: [110, 124], swing: 0, kit: "fourfloor", bass: "offbeat", chord: "arp", chordInst: "organ", progression: "minor", mode: "minor", pad: "organ", lead: "saxophone", bars: 24 },
+  "harry-styles": { name: "Harry Styles", group: "Pop & R&B", tempo: [110, 130], swing: 0.02, kit: "backbeat", bass: "root8", chord: "strum", chordInst: "guitar-electric", progression: "pop", mode: "major", lead: "guitar-electric", bars: 24 },
+  "drake": { name: "Drake", group: "Hip-Hop & Rap", tempo: [130, 146], swing: 0.16, kit: "trap", bass: "sub", chord: "pad", chordInst: "organ", progression: "minor", mode: "minor", pad: "organ", bars: 24 },
+  "eminem": { name: "Eminem", group: "Hip-Hop & Rap", tempo: [86, 104], swing: 0.1, kit: "boombap", bass: "sub", chord: "stab", chordInst: "piano", progression: "minor", mode: "minor", bars: 24 },
+  "kendrick-lamar": { name: "Kendrick Lamar", group: "Hip-Hop & Rap", tempo: [80, 95], swing: 0.14, kit: "boombap", bass: "syncop", chord: "stab", chordInst: "organ", progression: "jazz", mode: "minor", lead: "saxophone", bars: 24 },
+  "kanye-west": { name: "Kanye West", group: "Hip-Hop & Rap", tempo: [90, 110], swing: 0.12, kit: "boombap", bass: "sub", chord: "half", chordInst: "organ", progression: "doowop", mode: "major", lead: "trumpet", bars: 24 },
+  "sza": { name: "SZA", group: "Hip-Hop & Rap", tempo: [80, 100], swing: 0.12, kit: "boombap", bass: "syncop", chord: "half", chordInst: "piano", progression: "doowop", mode: "major", lead: "flute", bars: 24 },
+  "post-malone": { name: "Post Malone", group: "Hip-Hop & Rap", tempo: [120, 144], swing: 0.08, kit: "trap", bass: "sub", chord: "strum", chordInst: "guitar-acoustic", progression: "pop", mode: "major", lead: "guitar-acoustic", bars: 24 },
+  "travis-scott": { name: "Travis Scott", group: "Hip-Hop & Rap", tempo: [130, 150], swing: 0.06, kit: "trap", bass: "sub", chord: "pad", chordInst: "organ", progression: "minor", mode: "minor", pad: "organ", bars: 24 },
+  "nicki-minaj": { name: "Nicki Minaj", group: "Hip-Hop & Rap", tempo: [120, 140], swing: 0.08, kit: "trap", bass: "sub", chord: "stab", chordInst: "piano", progression: "minor", mode: "minor", bars: 24 },
+  "bad-bunny": { name: "Bad Bunny", group: "Latin & Global", tempo: [90, 100], swing: 0.06, kit: "fourfloor", bass: "offbeat", chord: "stab", chordInst: "organ", progression: "latin", mode: "minor", lead: "trumpet", bars: 24 },
+  "shakira": { name: "Shakira", group: "Latin & Global", tempo: [100, 120], swing: 0.06, kit: "fourfloor", bass: "syncop", chord: "strum", chordInst: "guitar-acoustic", progression: "latin", mode: "minor", lead: "trumpet", bars: 24 },
+  "bts": { name: "BTS", group: "Latin & Global", tempo: [110, 130], swing: 0.02, kit: "fourfloor", bass: "root8", chord: "stab", chordInst: "piano", progression: "pop", mode: "major", lead: "saxophone", bars: 24 },
+  "j-balvin": { name: "J Balvin", group: "Latin & Global", tempo: [90, 100], swing: 0.05, kit: "fourfloor", bass: "offbeat", chord: "arp", chordInst: "organ", progression: "latin", mode: "minor", lead: "flute", bars: 24 },
+  "karol-g": { name: "KAROL G", group: "Latin & Global", tempo: [90, 100], swing: 0.05, kit: "fourfloor", bass: "offbeat", chord: "stab", chordInst: "organ", progression: "latin", mode: "minor", lead: "trumpet", bars: 24 },
+  "daddy-yankee": { name: "Daddy Yankee", group: "Latin & Global", tempo: [92, 105], swing: 0.04, kit: "fourfloor", bass: "offbeat", chord: "stab", chordInst: "organ", progression: "latin", mode: "minor", lead: "saxophone", bars: 24 },
+  "coldplay": { name: "Coldplay", group: "Rock, Folk & Legacy", tempo: [100, 130], swing: 0, kit: "backbeat", bass: "root8", chord: "arp", chordInst: "piano", progression: "pop", mode: "major", lead: "piano", pad: "violin", bars: 24 },
+  "arctic-monkeys": { name: "Arctic Monkeys", group: "Rock, Folk & Legacy", tempo: [110, 140], swing: 0, kit: "rock", bass: "root8", chord: "strum", chordInst: "guitar-electric", progression: "minor", mode: "minor", lead: "guitar-electric", bars: 24 },
+  "imagine-dragons": { name: "Imagine Dragons", group: "Rock, Folk & Legacy", tempo: [100, 130], swing: 0, kit: "rock", bass: "root8", chord: "stab", chordInst: "piano", progression: "minor", mode: "minor", lead: "guitar-electric", pad: "organ", bars: 24 },
+  "michael-jackson": { name: "Michael Jackson", group: "Rock, Folk & Legacy", tempo: [110, 125], swing: 0.08, kit: "backbeat", bass: "syncop", chord: "stab", chordInst: "organ", progression: "minor", mode: "minor", lead: "trumpet", bars: 24 },
+  "the-beatles": { name: "The Beatles", group: "Rock, Folk & Legacy", tempo: [110, 140], swing: 0.03, kit: "backbeat", bass: "root8", chord: "strum", chordInst: "guitar-acoustic", progression: "fifties", mode: "major", lead: "guitar-electric", bars: 24 },
+  "queen": { name: "Queen", group: "Rock, Folk & Legacy", tempo: [110, 140], swing: 0, kit: "rock", bass: "quarter", chord: "strum", chordInst: "piano", progression: "pop", mode: "major", lead: "guitar-electric", bars: 24 }
+};
+
+// ---- 100 more featured artists (data-driven) ------------------------------------------------
+// Each new artist reuses a style archetype (tempo/kit/bass/chords/progression). Their lead melody
+// is drawn fresh from the 200-melody bank at build time, so every render sounds different.
+const ARTIST_ARCHETYPES = {
+  pop:     { group: "Pop & R&B", tempo: [100, 124], swing: 0.02, kit: "fourfloor", bass: "root8", chord: "half", chordInst: "piano", progression: "pop", mode: "major", lead: "piano", bars: 24 },
+  rnb:     { group: "Pop & R&B", tempo: [72, 98], swing: 0.12, kit: "boombap", bass: "syncop", chord: "half", chordInst: "piano", progression: "doowop", mode: "major", lead: "saxophone", bars: 24 },
+  soul:    { group: "Soul & Legends", tempo: [82, 108], swing: 0.12, kit: "backbeat", bass: "syncop", chord: "half", chordInst: "organ", progression: "doowop", mode: "major", lead: "trumpet", bars: 24 },
+  rap:     { group: "Hip-Hop & Rap", tempo: [120, 150], swing: 0.08, kit: "trap", bass: "sub", chord: "stab", chordInst: "organ", progression: "minor", mode: "minor", bars: 24 },
+  boombap: { group: "Hip-Hop & Rap", tempo: [86, 100], swing: 0.16, kit: "boombap", bass: "sub", chord: "stab", chordInst: "piano", progression: "minor", mode: "minor", bars: 24 },
+  rock:    { group: "Rock & Legacy", tempo: [112, 150], swing: 0, kit: "rock", bass: "root8", chord: "strum", chordInst: "guitar-electric", progression: "minor", mode: "minor", lead: "guitar-electric", bars: 24 },
+  metal:   { group: "Rock & Legacy", tempo: [140, 178], swing: 0, kit: "rock", bass: "root8", chord: "strum", chordInst: "guitar-electric", progression: "minor", mode: "minor", lead: "guitar-electric", bars: 24 },
+  country: { group: "Country & Folk", tempo: [100, 132], swing: 0.1, kit: "trainbeat", bass: "quarter", chord: "strum", chordInst: "guitar-acoustic", progression: "folk", mode: "major", lead: "violin", bars: 24 },
+  edm:     { group: "Electronic & Dance", tempo: [120, 130], swing: 0, kit: "fourfloor", bass: "root8", chord: "arp", chordInst: "organ", progression: "edm", mode: "minor", pad: "violin", lead: "saxophone", bars: 24 },
+  latin:   { group: "Latin & Global", tempo: [90, 112], swing: 0.06, kit: "fourfloor", bass: "offbeat", chord: "stab", chordInst: "organ", progression: "latin", mode: "minor", lead: "trumpet", bars: 24 }
+};
+
+const MORE_ARTIST_GROUPS = [
+  { label: "Artists · More Pop & R&B", artists: [
+    ["Beyoncé", "rnb"], ["Adele", "pop"], ["Ed Sheeran", "pop"], ["Katy Perry", "pop"], ["Selena Gomez", "pop"],
+    ["Miley Cyrus", "pop"], ["Sia", "pop"], ["Sam Smith", "rnb"], ["Shawn Mendes", "pop"], ["Camila Cabello", "latin"],
+    ["Charlie Puth", "pop"], ["Halsey", "pop"], ["Lorde", "pop"], ["Lana Del Rey", "pop"], ["Doja Cat", "rnb"],
+    ["Olivia Rodrigo", "pop"], ["Alicia Keys", "rnb"], ["John Legend", "rnb"], ["Frank Ocean", "rnb"], ["Usher", "rnb"]
+  ] },
+  { label: "Artists · More Hip-Hop & Rap", artists: [
+    ["Jay-Z", "boombap"], ["Snoop Dogg", "boombap"], ["50 Cent", "boombap"], ["Lil Wayne", "rap"], ["J. Cole", "boombap"],
+    ["Cardi B", "rap"], ["Megan Thee Stallion", "rap"], ["Tyler, The Creator", "rap"], ["A$AP Rocky", "rap"], ["Future", "rap"],
+    ["21 Savage", "rap"], ["Lil Nas X", "rap"], ["Nas", "boombap"], ["Ice Cube", "boombap"], ["Missy Elliott", "rap"],
+    ["Childish Gambino", "rap"], ["Mac Miller", "boombap"], ["Juice WRLD", "rap"]
+  ] },
+  { label: "Artists · More Rock & Legacy", artists: [
+    ["Nirvana", "rock"], ["Foo Fighters", "rock"], ["Red Hot Chili Peppers", "rock"], ["Green Day", "rock"], ["Linkin Park", "metal"],
+    ["Metallica", "metal"], ["AC/DC", "rock"], ["Guns N' Roses", "rock"], ["Led Zeppelin", "rock"], ["Pink Floyd", "rock"],
+    ["The Rolling Stones", "rock"], ["U2", "rock"], ["Radiohead", "rock"], ["Pearl Jam", "rock"], ["Bon Jovi", "rock"],
+    ["Aerosmith", "rock"], ["The Killers", "rock"], ["Muse", "rock"], ["Fleetwood Mac", "rock"], ["David Bowie", "rock"]
+  ] },
+  { label: "Artists · More Country & Folk", artists: [
+    ["Johnny Cash", "country"], ["Dolly Parton", "country"], ["Willie Nelson", "country"], ["Luke Combs", "country"], ["Morgan Wallen", "country"],
+    ["Chris Stapleton", "country"], ["Kacey Musgraves", "country"], ["Zach Bryan", "country"], ["Bob Dylan", "country"], ["Mumford & Sons", "country"]
+  ] },
+  { label: "Artists · More Electronic & Dance", artists: [
+    ["Daft Punk", "edm"], ["Calvin Harris", "edm"], ["David Guetta", "edm"], ["Avicii", "edm"], ["Marshmello", "edm"],
+    ["Skrillex", "edm"], ["Deadmau5", "edm"], ["The Chainsmokers", "edm"], ["Zedd", "edm"], ["Tiësto", "edm"],
+    ["Swedish House Mafia", "edm"], ["Diplo", "edm"]
+  ] },
+  { label: "Artists · More Latin & Global", artists: [
+    ["Rosalía", "latin"], ["Maluma", "latin"], ["Ozuna", "latin"], ["Anitta", "latin"], ["Rauw Alejandro", "latin"],
+    ["Peso Pluma", "latin"], ["Feid", "latin"], ["Manu Chao", "latin"], ["Enrique Iglesias", "latin"], ["Ricky Martin", "latin"]
+  ] },
+  { label: "Artists · Soul & Legends", artists: [
+    ["Stevie Wonder", "soul"], ["Prince", "soul"], ["Whitney Houston", "soul"], ["Aretha Franklin", "soul"], ["Marvin Gaye", "soul"],
+    ["Elton John", "pop"], ["Amy Winehouse", "soul"], ["Ray Charles", "soul"], ["Nina Simone", "soul"], ["Louis Armstrong", "soul"]
+  ] }
+];
+
+function slugifyArtist(name) {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+// Register the 100 extra artists into ARTIST_PROFILES and append them to the Style dropdown.
+function expandArtistRoster() {
+  MORE_ARTIST_GROUPS.forEach((grp) => {
+    const optgroup = elements.genreSelect ? document.createElement("optgroup") : null;
+    if (optgroup) { optgroup.label = grp.label; }
+    grp.artists.forEach((entry) => {
+      const name = entry[0];
+      const id = slugifyArtist(name);
+      if (!ARTIST_PROFILES[id]) {
+        const base = ARTIST_ARCHETYPES[entry[1]] || ARTIST_ARCHETYPES.pop;
+        ARTIST_PROFILES[id] = Object.assign({}, base, { name });
+      }
+      if (optgroup) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = name;
+        optgroup.append(opt);
+      }
+    });
+    if (optgroup && elements.genreSelect) { elements.genreSelect.append(optgroup); }
+  });
+}
+
 function randomizeSequencer() {
   const choice = elements.genreSelect ? elements.genreSelect.value : "random";
-  const ids = Object.keys(genreProfiles);
-  const profileId = choice === "random" || !genreProfiles[choice] ? pick(ids) : choice;
-  const profile = genreProfiles[profileId];
+  let profileId;
+  if (choice !== "random" && (ARTIST_PROFILES[choice] || genreProfiles[choice])) {
+    profileId = choice;
+  } else {
+    // "Surprise Me" -> a random title from the WHOLE Style list (artists + genres), avoiding an
+    // immediate repeat so you get a different song every time.
+    const pool = Object.keys(ARTIST_PROFILES).concat(Object.keys(genreProfiles));
+    profileId = pick(pool);
+    let guard = 0;
+    while (profileId === state.lastSongId && pool.length > 1 && guard < 10) {
+      profileId = pick(pool);
+      guard += 1;
+    }
+  }
+  state.lastSongId = profileId;
+  const profile = ARTIST_PROFILES[profileId] || genreProfiles[profileId];
 
-  const result = buildSongFromProfile(profile);
+  const result = buildSongFromProfile(profile, profileId);
   state.bars = Math.min(MAX_BARS, result.bars);
   state.seqTracks = result.tracks;
   state.nextStep = 0;
+  state.autoSong = true;
   elements.tempo.value = String(result.tempo);
   elements.swingMix.value = String(result.swing);
   updateControlLabels();
@@ -4018,15 +4615,31 @@ function addBars(amount) {
 }
 
 function clearSequencer() {
+  stopSample();
   const length = totalSteps();
   state.seqTracks.forEach((track) => {
     track.pattern = new Array(length).fill(0);
     track.stepNotes = null;
   });
+  markSongEdited();
   renderSequencer();
 }
 
 /* ---------- Transport ---------- */
+// Top Play button: while the song is still auto-generated, each press first spins up a fresh
+// random song/title (but it never overwrites a song you have hand-edited).
+function topPlay() {
+  if (!state.isPlaying && state.autoSong) {
+    randomizeSequencer();
+  }
+  toggleTransport();
+}
+
+// Any manual change to the arrangement marks the song as "yours" so top Play stops auto-swapping it.
+function markSongEdited() {
+  state.autoSong = false;
+}
+
 async function toggleTransport() {
   const canPlay = await startAudio();
   if (!canPlay) {
@@ -4053,6 +4666,7 @@ function stopTransport() {
   if (window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
+  stopSample();
   state.isPlaying = false;
   state.nextStep = 0;
   setActiveStep(-1);
@@ -4069,7 +4683,9 @@ function renderPlayButton() {
   const label = state.isPlaying
     ? `<i data-lucide="pause"></i><span>Pause</span>`
     : `<i data-lucide="play"></i><span>Play</span>`;
-  elements.playStop.innerHTML = label;
+  if (elements.playStop) {
+    elements.playStop.innerHTML = label;
+  }
   if (elements.seqPlay) {
     elements.seqPlay.innerHTML = label;
   }
@@ -4083,6 +4699,15 @@ function onTick(time) {
   // While recording from a stopped state, keep the backing sequencer/song silent
   // so only the live performance is captured (record without playing the music).
   if (!state.silentRecord) {
+    // If two tracks trigger the SAME voice on the same step (e.g. a copy/pasted duplicate
+    // overlapping the original), nudge the later one by a couple of ms so Tone never gets two
+    // identical start times on one voice ("start time must be strictly greater" error).
+    const tickTimes = {};
+    const stagger = (key) => {
+      const n = tickTimes[key] || 0;
+      tickTimes[key] = n + 1;
+      return time + n * 0.002;
+    };
     state.seqTracks.forEach((track) => {
       if (!track.pattern[step]) {
         return;
@@ -4109,13 +4734,20 @@ function onTick(time) {
         return;
       }
       if (track.kind === "drum") {
-        playDrum(track.piece, time, 0.9);
+        playDrum(track.piece, stagger("drum:" + track.piece), 0.9);
       } else if (track.kind === "sample") {
-        const tempoRate = track.tempo ? ((Number(elements.tempo.value) || 120) / track.tempo) : 1;
-        playSampleRegion(track.instrumentId, time, tempoRate);
+        const tempoRate = 1; // locked to the global tempo (all tracks stay in sync)
+        // Only play the active clip: cut the sample off at the end of its region block so it
+        // never rings out over the empty bars that follow.
+        const ws = track.regionStart || 0;
+        const winEnd = ws + (track.regionLen != null ? track.regionLen : (total - ws));
+        const bpm = Number(elements.tempo.value) || 120;
+        const secondsPerStep = (60 / bpm) / 4;
+        const maxDuration = Math.max(secondsPerStep, (winEnd - step) * secondsPerStep);
+        playSampleRegion(track.instrumentId, stagger("sample:" + track.instrumentId), tempoRate, false, maxDuration);
       } else {
         const notes = track.stepNotes && track.stepNotes[step] ? track.stepNotes[step] : track.notes;
-        playInstrument(track.instrumentId, notes, track.duration, time, 0.8);
+        playInstrument(track.instrumentId, notes, track.duration, stagger("inst:" + track.instrumentId), 0.8);
       }
     });
   }
@@ -4200,7 +4832,9 @@ function recordEvent(payload) {
 /* ---------- Metronome ---------- */
 function toggleMetronome() {
   state.metronomeOn = !state.metronomeOn;
-  elements.metronomeToggle.setAttribute("aria-pressed", String(state.metronomeOn));
+  if (elements.metronomeToggle) {
+    elements.metronomeToggle.setAttribute("aria-pressed", String(state.metronomeOn));
+  }
 }
 
 /* ---------- Sound triggering ---------- */
@@ -4252,6 +4886,289 @@ function populateSoundTypeSelects() {
     });
     select.value = SOUND_TYPE_OPTIONS.some((opt) => opt.value === current) ? current : "sampled";
   });
+}
+
+// Fill the Amp Tone dropdown from AMP_TONE_OPTIONS (34 presets: Flat + Classic/Metal/Punk + 30 more).
+function populateAmpToneSelect() {
+  const select = elements.ampToneSelect;
+  if (!select) {
+    return;
+  }
+  const current = select.value || "flat";
+  select.innerHTML = "";
+  AMP_TONE_OPTIONS.forEach((opt) => {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    select.append(option);
+  });
+  select.value = AMP_TONE_OPTIONS.some((opt) => opt.value === current) ? current : "flat";
+}
+
+// ---- Instrument tone shaping: amp-tone presets (all instruments) + guitar distortion --------
+// Every melodic/drum/sample instrument channel can have an ordered insert chain spliced between
+// its mixer channel and the master FX filter: an electric-guitar "distortion" pedal (guitars
+// only) followed by an "amp tone" preset (drive + 3-band EQ, available to every sample
+// instrument). routeInstrumentChannel() (re)builds and wires that chain per instrument.
+
+// Electric-guitar distortion "sound options" — each distorts a different dimension of the sound.
+const GUITAR_DISTORTION_OPTIONS = [
+  { value: "clean", label: "Clean" },
+  { value: "sizes", label: "Sizes" },
+  { value: "angles", label: "Angles" },
+  { value: "distances", label: "Distances" },
+  { value: "directions", label: "Directions" }
+];
+
+// Amp-tone presets for all sample instruments. Knob "o'clock" -> 0..1 (7:00 min, 12:00 noon,
+// 5:00 max; each hour = 0.1). Distortion uses that fraction (0..1); Bass/Mid/Treble map to a
+// +/-12 dB 3-band EQ (noon = 0 dB): dB = (fraction - 0.5) * 24.
+const AMP_TONE_OPTIONS = [
+  { value: "flat", label: "Flat (off)" },
+  { value: "classic", label: "Classic Rock / Blues" },
+  { value: "metal", label: "80s Hard Rock / Metal" },
+  { value: "punk", label: "Modern Punk / Alt" },
+  { value: "clean-fender", label: "Clean Sparkle" },
+  { value: "jazz-warm", label: "Jazz Warm" },
+  { value: "blues-breakup", label: "Blues Breakup" },
+  { value: "country-twang", label: "Country Twang" },
+  { value: "surf", label: "Surf Reverb" },
+  { value: "funk", label: "Funk Wah" },
+  { value: "indie-jangle", label: "Indie Jangle" },
+  { value: "grunge", label: "Grunge" },
+  { value: "thrash", label: "Thrash Metal" },
+  { value: "doom", label: "Doom Sludge" },
+  { value: "death", label: "Death Metal" },
+  { value: "djent", label: "Djent Tight" },
+  { value: "numetal", label: "Nu-Metal" },
+  { value: "british-crunch", label: "British Crunch" },
+  { value: "boutique", label: "Boutique OD" },
+  { value: "lead-boost", label: "Lead Boost" },
+  { value: "fuzz", label: "Fuzz Face" },
+  { value: "shoegaze", label: "Shoegaze Wall" },
+  { value: "poppunk", label: "Pop-Punk Bright" },
+  { value: "hardrock70", label: "70s Hard Rock" },
+  { value: "stadium", label: "Stadium Rock" },
+  { value: "ambient-wash", label: "Ambient Wash" },
+  { value: "lofi", label: "Lo-Fi Crunch" },
+  { value: "bass-deep", label: "Deep Bass Amp" },
+  { value: "synth-bright", label: "Synth Bright" },
+  { value: "tweed", label: "Vintage Tweed" },
+  { value: "scooped-modern", label: "Modern Scooped" },
+  { value: "honk", label: "Midrange Honk" },
+  { value: "treble-lead", label: "Treble Lead" },
+  { value: "warm-od", label: "Warm Overdrive" }
+];
+const AMP_TONES = {
+  // Classic Rock / Blues (transparent crunch): Dist 9-10, Bass 12, Mid 1, Treble 11 o'clock.
+  classic: { dist: 0.25, bass: 0, mid: 2.4, treble: -2.4 },
+  // 80s Hard Rock / Metal (scooped): Dist 2-3, Bass 2, Mid 10, Treble 2 o'clock.
+  metal: { dist: 0.75, bass: 4.8, mid: -4.8, treble: 4.8 },
+  // Modern Punk / Alternative: Dist 1-2, Bass 11, Mid 2, Treble 12 o'clock.
+  punk: { dist: 0.65, bass: -2.4, mid: 4.8, treble: 0 },
+  // 30 more voicings (dist 0..1; bass/mid/treble in dB, noon = 0).
+  "clean-fender": { dist: 0, bass: 2, mid: -1, treble: 4 },
+  "jazz-warm": { dist: 0, bass: 3, mid: 2, treble: -3 },
+  "blues-breakup": { dist: 0.3, bass: 1, mid: 3, treble: 0 },
+  "country-twang": { dist: 0.1, bass: -1, mid: 0, treble: 5 },
+  surf: { dist: 0.05, bass: 1, mid: -2, treble: 3 },
+  funk: { dist: 0.2, bass: 0, mid: 5, treble: 2 },
+  "indie-jangle": { dist: 0.15, bass: -2, mid: 1, treble: 4 },
+  grunge: { dist: 0.7, bass: 3, mid: -2, treble: 2 },
+  thrash: { dist: 0.85, bass: 4, mid: -5, treble: 5 },
+  doom: { dist: 0.8, bass: 6, mid: 1, treble: -2 },
+  death: { dist: 0.9, bass: 5, mid: -6, treble: 4 },
+  djent: { dist: 0.8, bass: 4, mid: -3, treble: 6 },
+  numetal: { dist: 0.75, bass: 5, mid: -4, treble: 3 },
+  "british-crunch": { dist: 0.4, bass: 1, mid: 4, treble: 1 },
+  boutique: { dist: 0.35, bass: 2, mid: 3, treble: 2 },
+  "lead-boost": { dist: 0.6, bass: 0, mid: 6, treble: 3 },
+  fuzz: { dist: 0.95, bass: 3, mid: 2, treble: -1 },
+  shoegaze: { dist: 0.7, bass: 4, mid: 0, treble: 1 },
+  poppunk: { dist: 0.6, bass: -1, mid: 2, treble: 4 },
+  hardrock70: { dist: 0.55, bass: 2, mid: 3, treble: 2 },
+  stadium: { dist: 0.5, bass: 3, mid: 2, treble: 3 },
+  "ambient-wash": { dist: 0, bass: 1, mid: -1, treble: 2 },
+  lofi: { dist: 0.45, bass: -2, mid: 1, treble: -3 },
+  "bass-deep": { dist: 0.15, bass: 6, mid: 0, treble: -4 },
+  "synth-bright": { dist: 0.3, bass: -1, mid: 2, treble: 5 },
+  tweed: { dist: 0.4, bass: 3, mid: 2, treble: -1 },
+  "scooped-modern": { dist: 0.7, bass: 5, mid: -6, treble: 5 },
+  honk: { dist: 0.5, bass: -2, mid: 6, treble: 0 },
+  "treble-lead": { dist: 0.55, bass: -1, mid: 2, treble: 6 },
+  "warm-od": { dist: 0.4, bass: 4, mid: 2, treble: -2 }
+};
+
+// Any kind of electric guitar (matches the id or an "electric ... guitar" name).
+function isElectricGuitar(def) {
+  if (!def) {
+    return false;
+  }
+  const name = (def.name || "").toLowerCase();
+  return def.id === "guitar-electric" || (name.includes("electric") && name.includes("guitar"));
+}
+
+// Build an electric-guitar distortion chain in the CURRENT Tone context. Returns {input, output,
+// nodes} or null for "clean". Used both live and inside Generate Music's offline render.
+function buildGuitarDistortionChain(kind) {
+  if (kind === "sizes") {
+    const n = new Tone.Distortion({ distortion: 0.92, oversample: "4x", wet: 1 });
+    return { input: n, output: n, nodes: [n] };
+  }
+  if (kind === "angles") {
+    const a = new Tone.BitCrusher({ bits: 4 });
+    const b = new Tone.Chebyshev({ order: 24, wet: 0.7 });
+    a.connect(b);
+    return { input: a, output: b, nodes: [a, b] };
+  }
+  if (kind === "distances") {
+    const a = new Tone.FeedbackDelay({ delayTime: "8n.", feedback: 0.5, wet: 0.55 });
+    const b = new Tone.Reverb({ decay: 5, wet: 0.6 });
+    a.connect(b);
+    return { input: a, output: b, nodes: [a, b] };
+  }
+  if (kind === "directions") {
+    const a = new Tone.Phaser({ frequency: 0.5, octaves: 4, baseFrequency: 320, wet: 0.9 });
+    const b = new Tone.StereoWidener({ width: 0.95 });
+    a.connect(b);
+    return { input: a, output: b, nodes: [a, b] };
+  }
+  return null;
+}
+
+// Build an amp-tone chain (drive + 3-band EQ) in the CURRENT Tone context for a preset value.
+function buildAmpToneChain(preset) {
+  const amp = AMP_TONES[preset];
+  if (!amp) {
+    return null;
+  }
+  const dist = new Tone.Distortion({ distortion: amp.dist, oversample: "2x", wet: amp.dist > 0 ? 1 : 0 });
+  const eq = new Tone.EQ3({ low: amp.bass, mid: amp.mid, high: amp.treble });
+  dist.connect(eq);
+  return { input: dist, output: eq, nodes: [dist, eq] };
+}
+
+// Desired tone stages (guitar distortion pedal -> amp tone) for an instrument, in order.
+function instrumentToneKinds(id) {
+  const def = getInstrumentDef(id);
+  const gtr = isElectricGuitar(def) ? (state.guitarDistortion || "clean") : "clean";
+  const amp = state.ampTone[id] || "flat";
+  return { gtr, amp };
+}
+
+// (Re)build and wire the tone insert chain for one instrument channel:
+// channel -> [guitar distortion] -> [amp tone] -> master filter.
+function routeInstrumentChannel(id) {
+  if (!state.ready || !window.Tone) {
+    return;
+  }
+  const channel = state.channels[id];
+  const filter = state.nodes.filter;
+  if (!channel || !filter) {
+    return;
+  }
+  const want = instrumentToneKinds(id);
+  const fx = state.instrumentFx[id] || (state.instrumentFx[id] = { gtr: null, gtrKind: "clean", amp: null, ampPreset: "flat" });
+  // Rebuild the guitar-distortion stage only when its kind changes.
+  if (fx.gtrKind !== want.gtr) {
+    if (fx.gtr) { fx.gtr.nodes.forEach((n) => { try { n.dispose(); } catch (error) { /* ignore */ } }); }
+    fx.gtr = want.gtr !== "clean" ? buildGuitarDistortionChain(want.gtr) : null;
+    fx.gtrKind = want.gtr;
+  }
+  // Rebuild the amp-tone stage only when its preset changes.
+  if (fx.ampPreset !== want.amp) {
+    if (fx.amp) { fx.amp.nodes.forEach((n) => { try { n.dispose(); } catch (error) { /* ignore */ } }); }
+    fx.amp = want.amp !== "flat" ? buildAmpToneChain(want.amp) : null;
+    fx.ampPreset = want.amp;
+  }
+  const stages = [];
+  if (fx.gtr) { stages.push(fx.gtr); }
+  if (fx.amp) { stages.push(fx.amp); }
+  try { channel.disconnect(); } catch (error) { /* ignore */ }
+  stages.forEach((stage) => { try { stage.output.disconnect(); } catch (error) { /* ignore */ } });
+  if (!stages.length) {
+    channel.connect(filter);
+    return;
+  }
+  channel.connect(stages[0].input);
+  for (let i = 0; i < stages.length - 1; i += 1) {
+    stages[i].output.connect(stages[i + 1].input);
+  }
+  stages[stages.length - 1].output.connect(filter);
+}
+
+// Re-route every instrument channel (after the audio graph is (re)built or a project loads).
+function routeAllChannels() {
+  if (!state.ready) {
+    return;
+  }
+  instrumentDefs.forEach((def) => {
+    if (!def.vocal && state.channels[def.id]) {
+      routeInstrumentChannel(def.id);
+    }
+  });
+}
+
+// Set the electric-guitar distortion (global to all electric guitars) and re-route their channels.
+function applyGuitarDistortion(value) {
+  state.guitarDistortion = value || state.guitarDistortion || "clean";
+  if (!state.ready) {
+    return;
+  }
+  instrumentDefs.forEach((def) => {
+    if (isElectricGuitar(def) && state.channels[def.id]) {
+      routeInstrumentChannel(def.id);
+    }
+  });
+}
+
+// Distortion dropdown for the electric guitar's creative distortion options.
+async function onGuitarDistortionChange() {
+  const choice = elements.guitarDistortSelect ? elements.guitarDistortSelect.value : "clean";
+  const ready = await startAudio();
+  if (!ready) {
+    state.guitarDistortion = choice;
+    return;
+  }
+  applyGuitarDistortion(choice);
+  const option = GUITAR_DISTORTION_OPTIONS.find((entry) => entry.value === choice);
+  elements.statusText.textContent = `Guitar distortion: ${option ? option.label : choice}`;
+  const def = getInstrumentDef(state.selectedInstrument);
+  if (isElectricGuitar(def) && !state.isRecording) {
+    ensureInstrument(def.id);
+    try { await Tone.loaded(); } catch (error) { /* ignore */ }
+    playInstrument(def.id, ["E3", "G3", "B3"], "2n", undefined, 0.85);
+  }
+}
+
+// Amp-tone preset dropdown (all sample instruments): set for the selected instrument and re-route.
+async function onAmpToneChange() {
+  const id = state.selectedInstrument;
+  const preset = elements.ampToneSelect ? elements.ampToneSelect.value : "flat";
+  state.ampTone[id] = preset;
+  const ready = await startAudio();
+  if (!ready) {
+    return;
+  }
+  routeInstrumentChannel(id);
+  const option = AMP_TONE_OPTIONS.find((entry) => entry.value === preset);
+  elements.statusText.textContent = `Amp tone: ${option ? option.label : preset}`;
+  const def = getInstrumentDef(id);
+  if (def.vocal || state.isRecording) {
+    return;
+  }
+  if (def.id === "drums") {
+    const now = Tone.now() + 0.05;
+    playDrum("kick", now, 0.9);
+    playDrum("hihat", now + 0.14, 0.7);
+    playDrum("snare", now + 0.28, 0.85);
+  } else if (def.recorded) {
+    previewSample();
+  } else if (def.sample && def.sample.kind === "melodic") {
+    ensureInstrument(id);
+    try { await Tone.loaded(); } catch (error) { /* ignore */ }
+    playInstrument(id, ["C4", "E4", "G4"], "2n", undefined, 0.8);
+  }
 }
 
 function getSoundTypeVoice(instrumentId) {
@@ -4465,12 +5382,17 @@ function sampleRegionSteps(id) {
   return Math.max(1, Math.round((dur * stretch) / secondsPerStep));
 }
 
-function playSampleRegion(id, time, tempoRate, loop) {
+function playSampleRegion(id, time, tempoRate, loop, maxDuration) {
   const eventTime = time ?? Tone.now();
   const rate = tempoRate || 1;
   const buffer = state.sampleBuffers[id];
   const stretch = state.sampleStretch[id] || 1;
   const playbackRate = (1 / stretch) * rate;
+  // Retrigger = reset: stop any still-playing instance of this sample so hits never stack/overlap.
+  if (!loop && state.livePlayers[id]) {
+    try { state.livePlayers[id].stop(eventTime); } catch (error) { /* ignore */ }
+    state.livePlayers[id] = null;
+  }
   if (!buffer || !state.channels[id]) {
     if (state.sampleSamplers[id]) {
       state.sampleSamplers[id].triggerAttackRelease("C4", (state.sampleDurations[id] || 1) / playbackRate, eventTime, 0.9);
@@ -4491,9 +5413,17 @@ function playSampleRegion(id, time, tempoRate, loop) {
     return null;
   }
   if (!loop) {
-    const lifeMs = ((state.sampleDurations[id] || buffer.duration || 1) / playbackRate + 0.6) * 1000;
+    state.livePlayers[id] = player;
+    let lifeSec = (state.sampleDurations[id] || buffer.duration || 1) / playbackRate;
+    if (maxDuration != null && maxDuration > 0 && maxDuration < lifeSec) {
+      // Gate the clip to its region block: stop it when the block ends.
+      lifeSec = maxDuration;
+      try { player.stop(eventTime + maxDuration); } catch (error) { /* ignore */ }
+    }
+    const lifeMs = (lifeSec + 0.6) * 1000;
     window.setTimeout(() => {
       try { player.dispose(); } catch (error) { /* ignore */ }
+      if (state.livePlayers[id] === player) { state.livePlayers[id] = null; }
     }, Math.min(Math.max(lifeMs, 400), 120000));
   }
   return player;
@@ -4661,10 +5591,10 @@ async function renderCompositionBuffer(includeRecorded) {
         }
         const base = stepTime + trackIndex * 0.0004;
         if (track.kind === "sample") {
-          const buf = state.sampleBuffers[track.instrumentId];
+          const buf = state.sampleOriginals[track.instrumentId] || state.sampleBuffers[track.instrumentId];
           if (buf) {
             try {
-              const tempoRate = track.tempo ? (bpm / track.tempo) : 1;
+              const tempoRate = 1; // locked to the global tempo (all tracks stay in sync)
               const clip = new Tone.GrainPlayer({ url: buf, grainSize: 0.14, overlap: 0.08, playbackRate: (1 / (state.sampleStretch[track.instrumentId] || 1)) * tempoRate }).connect(delay);
               clip.start(nextTime(`s:${track.instrumentId}:${step}`, base));
             } catch (error) {
@@ -4710,12 +5640,13 @@ async function renderCompositionBuffer(includeRecorded) {
 
 /* ---------- Download modal (WAV / MP3) ---------- */
 function openDownloadModal() {
-  if (!state.ready || !state.recordedEvents.length || !elements.downloadModal) {
+  if (!state.ready || !elements.downloadModal) {
     return;
   }
+  const hasTake = state.recordedEvents.length > 0;
   state.downloadBaseName = "musicband-recording";
   if (elements.downloadTitle) {
-    elements.downloadTitle.textContent = "Download Recording";
+    elements.downloadTitle.textContent = "Export Music";
   }
   elements.downloadModal.hidden = false;
   elements.downloadStatus.textContent = "Rendering your track…";
@@ -4725,7 +5656,7 @@ function openDownloadModal() {
   renderCompositionBuffer(true).then((buffer) => {
     state.recordingBuffer = buffer;
     const seconds = Math.round(buffer.duration * 10) / 10;
-    elements.downloadStatus.textContent = `Ready — ${seconds}s mix (song + your take).`;
+    elements.downloadStatus.textContent = `Ready — ${seconds}s mix (${hasTake ? "song + your take" : "full song"}).`;
     elements.downloadWav.disabled = false;
     if (window.lamejs) {
       elements.downloadMp3.disabled = false;
@@ -4744,8 +5675,71 @@ function closeDownloadModal() {
   }
 }
 
+// ---- PhaseVocoder.js integration: global Pitch + Stretch for samples & export -------------
+function getPvContext() {
+  if (window.Tone && Tone.getContext) {
+    const raw = Tone.getContext().rawContext;
+    if (raw && typeof raw.createBuffer === "function") { return raw; }
+  }
+  if (!state.pvContext) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    state.pvContext = AC ? new AC() : null;
+  }
+  return state.pvContext;
+}
+
+// Run an AudioBuffer through PhaseVocoder.js with the current global Pitch/Stretch.
+function phaseVocoderProcess(audioBuffer) {
+  if (!audioBuffer || !window.PhaseVocoder) { return audioBuffer; }
+  const semitones = state.pvPitch || 0;
+  const stretch = state.pvStretch || 1;
+  if (semitones === 0 && stretch === 1) { return audioBuffer; }
+  const ctx = getPvContext();
+  if (!ctx) { return audioBuffer; }
+  try {
+    return window.PhaseVocoder.processBuffer(ctx, audioBuffer, { semitones, stretch });
+  } catch (error) {
+    console.warn("Phase vocoder failed", error);
+    return audioBuffer;
+  }
+}
+
+// Rebuild one recorded sample's playback buffer from its untouched original.
+function applyPhaseVocoderToSample(id) {
+  const original = state.sampleOriginals[id];
+  if (!original || !state.channels[id]) { return; }
+  const processed = phaseVocoderProcess(original);
+  const toneBuffer = new Tone.ToneAudioBuffer(processed);
+  if (state.sampleSamplers[id]) {
+    try { state.sampleSamplers[id].dispose(); } catch (error) { /* ignore */ }
+  }
+  state.sampleSamplers[id] = new Tone.Sampler({ C4: toneBuffer }).connect(state.channels[id]);
+  state.sampleBuffers[id] = toneBuffer;
+  state.sampleDurations[id] = toneBuffer.duration || processed.duration || 0;
+  if (state.regionPlayers[id]) {
+    try { state.regionPlayers[id].dispose(); } catch (error) { /* ignore */ }
+    delete state.regionPlayers[id];
+  }
+}
+
+// Re-apply the global Pitch/Stretch to every recorded sample (on slider release).
+function applyPhaseVocoderToSamples() {
+  const semitones = state.pvPitch || 0;
+  const stretch = state.pvStretch || 1;
+  if (state.ready) {
+    Object.keys(state.sampleOriginals).forEach((id) => applyPhaseVocoderToSample(id));
+    renderSequencer();
+  }
+  if (semitones === 0 && stretch === 1) {
+    elements.statusText.textContent = "Pitch/Stretch: off (original)";
+  } else {
+    elements.statusText.textContent = `Pitch ${semitones > 0 ? "+" : ""}${semitones} st \u00b7 Stretch ${stretch.toFixed(2)}x`;
+  }
+}
+
 function downloadAudio(audioBuffer, format, baseName) {
-  const blob = format === "mp3" ? encodeMp3(audioBuffer) : audioBufferToWav(audioBuffer);
+  const shaped = phaseVocoderProcess(audioBuffer);
+  const blob = format === "mp3" ? encodeMp3(shaped) : audioBufferToWav(shaped);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -4963,5 +5957,24 @@ function drawWave(context, waveform, width, height, color, offset) {
   context.stroke();
 }
 
+// Mirror the loop-sequencer Style dropdown into the Selected panel (beside Amp Tone) so Generate
+// Music can render in a chosen artist/genre; the two Style selects stay in sync.
+function setupGenStyleSelect() {
+  if (!elements.genStyleSelect || !elements.genreSelect) {
+    return;
+  }
+  elements.genStyleSelect.innerHTML = elements.genreSelect.innerHTML;
+  elements.genStyleSelect.value = elements.genreSelect.value;
+  elements.genStyleSelect.addEventListener("change", () => {
+    if (elements.genreSelect) { elements.genreSelect.value = elements.genStyleSelect.value; }
+  });
+  elements.genreSelect.addEventListener("change", () => {
+    if (elements.genStyleSelect) { elements.genStyleSelect.value = elements.genreSelect.value; }
+  });
+}
+
 /* ---------- Deferred init (runs after all module constants are defined) ---------- */
 populateSoundTypeSelects();
+populateAmpToneSelect();
+expandArtistRoster();
+setupGenStyleSelect();

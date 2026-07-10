@@ -79,6 +79,16 @@ select {
   font: inherit;
 }
 
+.app-footer {
+  text-align: center;
+  padding: 22px 16px calc(26px + env(safe-area-inset-bottom));
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  border-top: 1px solid var(--line);
+}
+
 button {
   border: 0;
 }
@@ -108,6 +118,18 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   gap: 18px;
+}
+
+/* Right column of the deck: piano panel with the Effects Rack stacked underneath it. */
+.perf-column {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  align-content: start;
+}
+
+.perf-column > * {
+  min-width: 0;
 }
 
 /* Allow grid items to shrink so inner scroll containers (sequencer rows,
@@ -162,6 +184,42 @@ button {
 .brand-copy {
   display: grid;
   gap: 12px;
+}
+
+.brand-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.help-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 209, 102, 0.14);
+  color: var(--amber);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background 160ms ease, transform 160ms ease, color 160ms ease;
+}
+
+.help-link:hover {
+  background: var(--amber);
+  color: #2a1c05;
+  transform: translateY(-1px);
+}
+
+.help-link i,
+.help-link svg {
+  width: 15px;
+  height: 15px;
 }
 
 .eyebrow,
@@ -1404,6 +1462,37 @@ select {
   border-color: transparent;
 }
 
+.track-copy {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.track-copy:hover {
+  color: #06231a;
+  background: var(--amber);
+  border-color: transparent;
+}
+
+.sequence-row.is-selected .track-name {
+  box-shadow: -3px 0 0 var(--amber);
+  padding-left: 4px;
+}
+
+.sequence-row.is-selected .region-body,
+.sequence-row.is-selected .region-outline {
+  box-shadow: 0 0 0 2px var(--amber);
+}
+
 .track-tempo {
   flex: none;
   width: 46px;
@@ -1483,7 +1572,7 @@ select {
 .region-handle {
   position: absolute;
   top: 0;
-  width: 14px;
+  width: 18px;
   height: 100%;
   z-index: 5;
   cursor: col-resize;
@@ -1495,17 +1584,52 @@ select {
 
 .region-handle::before {
   content: "";
-  width: 4px;
-  height: 62%;
+  width: 6px;
+  height: 68%;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--track-color) 72%, #ffffff);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  background: color-mix(in srgb, var(--track-color) 82%, #ffffff);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
 .region-handle:hover::before,
 .region-handle:active::before {
   background: var(--paper);
-  height: 80%;
+  height: 88%;
+  width: 7px;
+}
+
+/* Non-interactive outline showing each plain track's adjustable window (trim/expand region). */
+.region-outline {
+  position: absolute;
+  top: 2px;
+  height: calc(100% - 4px);
+  z-index: 3;
+  pointer-events: none;
+  border: 1.5px dashed color-mix(in srgb, var(--track-color) 60%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--track-color) 7%, transparent);
+}
+
+/* Soundtrap-style draggable "move" header at the top of a plain track's block. */
+.region-move {
+  position: absolute;
+  top: 0;
+  height: 12px;
+  z-index: 4;
+  cursor: grab;
+  touch-action: none;
+  border-radius: 6px 6px 0 0;
+  background: color-mix(in srgb, var(--track-color) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--track-color) 62%, transparent);
+  border-bottom: none;
+}
+
+.region-move:hover {
+  background: color-mix(in srgb, var(--track-color) 62%, transparent);
+}
+
+.region-move.is-grabbing {
+  cursor: grabbing;
 }
 
 .region-body {
