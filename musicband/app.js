@@ -1384,12 +1384,12 @@ function updateInstrumentSelection() {
   if (showSeq) {
     renderSampleSteps();
   }
-  // Scratch Sampler (above Amp Tone): only for recorded samples — it scratches that sample.
-  const isRecordedSample = !!definition.recorded;
+  // Scratch Sampler (above Amp Tone): scratch the SELECTED instrument's own sound (any non-vocal).
+  const showScratch = !definition.vocal;
   if (elements.scratchWrap) {
-    elements.scratchWrap.hidden = !isRecordedSample;
+    elements.scratchWrap.hidden = !showScratch;
   }
-  if (isRecordedSample) {
+  if (showScratch) {
     updateScratchLabel(definition);
   }
 }
@@ -1397,7 +1397,7 @@ function updateInstrumentSelection() {
 /* ---------- Scratch Sampler (visual turntable that scratches the selected sample) ---------- */
 function currentScratchSampleId() {
   const def = getInstrumentDef(state.selectedInstrument);
-  if (def && def.recorded) {
+  if (def && !def.vocal) {
     return def.id;
   }
   return lastRecordedSampleId();
@@ -1449,23 +1449,15 @@ function routeScratchOut(id) {
   }
 }
 
-function scratchLoadSample(id) {
+// Load an AudioBuffer into the turntable (forward + reverse) and route it to the instrument's channel.
+function applyScratchBuffer(id, buffer) {
   const s = state.scratch;
-  if (!id) { s.forwardTone = null; return; }
-  if (!state.sampleBuffers[id] && state.pendingSampleBuffers[id]) {
-    try {
-      buildSampleSampler(id, state.pendingSampleBuffers[id], { autoRename: false, select: false });
-      delete state.pendingSampleBuffers[id];
-    } catch (error) { /* ignore */ }
-  }
-  const toneBuf = state.sampleBuffers[id];
-  const buffer = toneBuf && toneBuf.get ? toneBuf.get() : null;
-  if (!buffer) { s.forwardTone = null; return; }
-  if (s.id === id && s.forwardTone) {
-    routeScratchOut(id); // already loaded — just make sure it plays through the current channel
+  if (s.id === id && s.loadedBuffer === buffer && s.forwardTone) {
+    routeScratchOut(id); // already loaded — just keep it on the current channel
     return;
   }
   s.id = id;
+  s.loadedBuffer = buffer;
   s.duration = buffer.duration;
   s.forwardTone = new Tone.ToneAudioBuffer(buffer);
   try {
@@ -1476,6 +1468,113 @@ function scratchLoadSample(id) {
   }
   s.playhead = 0;
   routeScratchOut(id);
+}
+
+// Render a short phrase of the SELECTED instrument playing ITSELF (its real samples, its Sound Type
+// synth, or its drum kit) into an AudioBuffer, so the turntable scratches that instrument's sound.
+// Matches live playback: Sound Type synth for melodic when set, the drum kit for drums, else samples.
+async function renderInstrumentScratchBuffer(id) {
+  const def = getInstrumentDef(id);
+  if (!def || def.vocal) { return null; }
+  const soundType = elements.genSoundType ? elements.genSoundType.value : "sampled";
+  const soundDef = (typeof GEN_SOUND_TYPES !== "undefined" && GEN_SOUND_TYPES[soundType]) || null;
+  const isDrums = def.id === "drums";
+  const isSynth = !!def.synth || !def.sample;
+  ensureInstrument(id); // warm the main-context sample cache so the offline load is quick
+  const renderJob = Tone.Offline(async () => {
+    let voice = null;
+    let hitDrum = null;
+    if (isDrums) {
+      if (soundDef) {
+        const kit = buildSynthDrumKit(soundType, Tone.getDestination());
+        hitDrum = (piece, t, v) => { if (kit) { kit.trigger(piece, t, v); } };
+      } else {
+        const players = new Tone.Players({ urls: def.sample.urls, baseUrl: def.sample.baseUrl }).toDestination();
+        hitDrum = (piece, t, v) => { if (players.has(piece)) { players.player(piece).start(t); } };
+      }
+    } else if (isSynth && def.fallback) {
+      voice = def.fallback().toDestination(); // synth-only instruments use their own voice
+    } else if (soundDef) {
+      let dest = Tone.getDestination();
+      if (soundDef.dist > 0) {
+        dest = new Tone.Distortion({ distortion: soundDef.dist, wet: 0.5 }).toDestination();
+      }
+      const synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: soundDef.osc }, envelope: soundDef.envelope }).connect(dest);
+      synth.volume.value = soundDef.volume;
+      voice = synth;
+    } else if (def.sample) {
+      voice = new Tone.Sampler({ urls: def.sample.urls, baseUrl: def.sample.baseUrl }).toDestination();
+    } else if (def.fallback) {
+      voice = def.fallback().toDestination();
+    } else {
+      voice = new Tone.PolySynth(Tone.Synth).toDestination();
+    }
+    await Tone.loaded();
+    if (isDrums) {
+      const groove = ["kick", "hihat", "snare", "hihat", "kick", "kick", "snare", "hihat"];
+      groove.forEach((piece, i) => hitDrum(piece, 0.02 + i * 0.18, 0.9));
+    } else {
+      voice.triggerAttackRelease(["C3", "E3", "G3"], 1.5, 0.02, 0.9);
+      voice.triggerAttackRelease(["G3"], 0.4, 0.6, 0.7);
+      voice.triggerAttackRelease(["B3"], 0.4, 0.95, 0.7);
+      voice.triggerAttackRelease(["C4"], 0.6, 1.3, 0.75);
+    }
+  }, 2);
+  let toneBuf = null;
+  try {
+    toneBuf = await Promise.race([
+      renderJob,
+      new Promise((resolve) => window.setTimeout(() => resolve(null), 6000))
+    ]);
+  } catch (error) {
+    toneBuf = null;
+  }
+  if (!toneBuf) { return null; }
+  return toneBuf.get ? toneBuf.get() : toneBuf;
+}
+
+function scratchLoadSample(id) {
+  const s = state.scratch;
+  if (!id) { s.forwardTone = null; return; }
+  if (!state.scratchBuffers) { state.scratchBuffers = {}; }
+  const def = getInstrumentDef(id);
+  // Recorded samples scratch their own recording (read live — it may change after a re-record).
+  if (def && def.recorded) {
+    if (!state.sampleBuffers[id] && state.pendingSampleBuffers[id]) {
+      try {
+        buildSampleSampler(id, state.pendingSampleBuffers[id], { autoRename: false, select: false });
+        delete state.pendingSampleBuffers[id];
+      } catch (error) { /* ignore */ }
+    }
+    const toneBuf = state.sampleBuffers[id];
+    const buffer = toneBuf && toneBuf.get ? toneBuf.get() : null;
+    if (!buffer) {
+      s.forwardTone = null;
+      if (elements.statusText) { elements.statusText.textContent = "Record or upload a sample to scratch it"; }
+      return;
+    }
+    applyScratchBuffer(id, buffer);
+    return;
+  }
+  // Any other instrument: scratch a rendered clip of its own sound (cached after the first render).
+  const cached = state.scratchBuffers[id];
+  if (cached) { applyScratchBuffer(id, cached); return; }
+  if (s.loading && s.pendingId === id) { return; } // a render for this instrument is already running
+  s.loading = true;
+  s.pendingId = id;
+  if (elements.statusText) { elements.statusText.textContent = `Loading ${def ? def.name : "instrument"} to scratch...`; }
+  renderInstrumentScratchBuffer(id).then((buffer) => {
+    s.loading = false;
+    if (!buffer) {
+      if (elements.statusText) { elements.statusText.textContent = "Couldn't prepare that sound to scratch"; }
+      return;
+    }
+    state.scratchBuffers[id] = buffer;
+    if (currentScratchSampleId() === id) {
+      applyScratchBuffer(id, buffer);
+      if (elements.statusText) { elements.statusText.textContent = `${def ? def.name : "Instrument"} ready - spin to scratch`; }
+    }
+  }).catch(() => { s.loading = false; });
 }
 
 // Play a short windowed grain from the current playhead, forwards or backwards, at a speed set by
@@ -1617,8 +1716,9 @@ function setupScratcher() {
   state.scratch = {
     id: null, forwardTone: null, reverseTone: null, toneOut: null, duration: 0,
     angle: 0, angVel: 0, playhead: 0, lastAngle: 0, lastT: 0, centerX: 0, centerY: 0,
-    dragging: false, lastGrainT: 0, rafId: null
+    dragging: false, lastGrainT: 0, rafId: null, loading: false, pendingId: null, loadedBuffer: null
   };
+  state.scratchBuffers = state.scratchBuffers || {};
   disc.addEventListener("pointerdown", onScratchDown);
   disc.addEventListener("pointermove", onScratchMove);
   disc.addEventListener("pointerup", onScratchUp);
@@ -6234,6 +6334,7 @@ function disposeDrumKit(kit) {
 // Rebuild voices on change and give immediate audible feedback on the selected instrument.
 function onSoundTypeChange() {
   disposeSoundTypeSynths();
+  state.scratchBuffers = {}; // the scratch sound follows the Sound Type, so re-render on change
   if (elements.genSoundTypeSeq && elements.genSoundType && elements.genSoundTypeSeq.value !== elements.genSoundType.value) {
     elements.genSoundTypeSeq.value = elements.genSoundType.value;
   }
