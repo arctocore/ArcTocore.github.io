@@ -1,0 +1,13 @@
+{
+  "name": "SportTactix — Tactical Analysis & Coaching Platform",
+  "short_name": "SportTactix",
+  "description": "Design tactics, analyze matches, record live events, produce statistics and manage teams.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "any",
+  "icons": [
+    { "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192'%3E%3Crect width='192' height='192' rx='36' fill='%230a0e1a'/%3E%3Cg transform='translate(56 56)' fill='none' stroke='%23ff6a00' stroke-width='7' stroke-linecap='round'%3E%3Ccircle cx='40' cy='40' r='38'/%3E%3Cpath d='M40 2a38 38 0 0 0 0 76M2 40h76M14 14l52 52M66 14 14 66'/%3E%3C/g%3E%3C/svg%3E", "sizes": "192x192", "type": "image/svg+xml" }
+  ]
+}
