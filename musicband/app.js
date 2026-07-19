@@ -246,6 +246,7 @@ const elements = {
   clearLoop: document.querySelector("#clearLoop"),
   saveProject: document.querySelector("#saveProject"),
   loadProject: document.querySelector("#loadProject"),
+  exportSettings: document.querySelector("#exportSettings"),
   projectFileInput: document.querySelector("#projectFileInput"),
   statusText: document.querySelector("#statusText"),
   positionText: document.querySelector("#positionText"),
@@ -359,6 +360,16 @@ const elements = {
   octaveBottomValue: document.querySelector("#octaveBottomValue"),
   testSample: document.querySelector("#testSample"),
   exportSample: document.querySelector("#exportSample"),
+  sampleStepWrap: document.querySelector("#sampleStepWrap"),
+  sampleStepGrid: document.querySelector("#sampleStepGrid"),
+  sampleStepPlay: document.querySelector("#sampleStepPlay"),
+  sampleStepClear: document.querySelector("#sampleStepClear"),
+  sampleStepAdd: document.querySelector("#sampleStepAdd"),
+  sampleStepLength: document.querySelector("#sampleStepLength"),
+  scratchWrap: document.querySelector("#scratchWrap"),
+  scratchDisc: document.querySelector("#scratchDisc"),
+  scratchVinyl: document.querySelector("#scratchVinyl"),
+  scratchLabel: document.querySelector("#scratchLabel"),
   genStyleWrap: document.querySelector("#genStyleWrap"),
   genStyleSelect: document.querySelector("#genStyleSelect"),
   ampToneWrap: document.querySelector("#ampToneWrap"),
@@ -441,6 +452,15 @@ const state = {
   downloadBaseName: null,
   activeKeyNotes: new Map(),
   heldNotes: new Map(),
+  seqRows: [],
+  seqLength: 16,
+  seqRowUid: 0,
+  lastPlayedNotes: {},
+  lastDrumPiece: "kick",
+  lastSongTitle: null,
+  sampleStepPlaying: false,
+  sampleStepIndex: 0,
+  sampleStepTimer: null,
   previewTimers: [],
   previewToken: 0,
   previewInstrument: null,
@@ -448,7 +468,8 @@ const state = {
   stepColumns: [],
   currentColumn: null,
   autoSong: true,
-  lastSongId: null
+  lastSongId: null,
+  lastAutoSoundType: null
 };
 
 state.seqTracks = defaultSeqTracks();
@@ -603,10 +624,13 @@ function setupEvents() {
   if (elements.loadProject) {
     elements.loadProject.addEventListener("click", triggerLoadProject);
   }
+  if (elements.exportSettings) {
+    elements.exportSettings.addEventListener("click", exportSettings);
+  }
   if (elements.projectFileInput) {
     elements.projectFileInput.addEventListener("change", onProjectFileChosen);
   }
-  elements.randomizeSeq.addEventListener("click", randomizeSequencer);
+  elements.randomizeSeq.addEventListener("click", () => randomizeSequencer());
   if (elements.clearSeq) {
     elements.clearSeq.addEventListener("click", clearSequencer);
   }
@@ -644,6 +668,18 @@ function setupEvents() {
   }
   if (elements.exportSample) {
     elements.exportSample.addEventListener("click", exportSelectedSample);
+  }
+  if (elements.sampleStepPlay) {
+    elements.sampleStepPlay.addEventListener("click", toggleSampleStepSequence);
+  }
+  if (elements.sampleStepClear) {
+    elements.sampleStepClear.addEventListener("click", clearSampleSteps);
+  }
+  if (elements.sampleStepAdd) {
+    elements.sampleStepAdd.addEventListener("click", () => addSeqInstrument(state.selectedInstrument));
+  }
+  if (elements.sampleStepLength) {
+    elements.sampleStepLength.addEventListener("change", () => setSeqLength(Number(elements.sampleStepLength.value)));
   }
   elements.addTrack.addEventListener("click", addTrackFromBuilder);
   if (elements.testVoice) {
@@ -1340,6 +1376,182 @@ function updateInstrumentSelection() {
   if (elements.ampToneSelect && showAmpTone) {
     elements.ampToneSelect.value = state.ampTone[definition.id] || "flat";
   }
+  // Sample Sequence strip (under Amp Tone): combine any non-vocal instruments into one step grid.
+  const showSeq = !definition.vocal;
+  if (elements.sampleStepWrap) {
+    elements.sampleStepWrap.hidden = !showSeq;
+  }
+  if (showSeq) {
+    renderSampleSteps();
+  }
+  // Scratch Sampler (above Amp Tone): only for recorded samples — it scratches that sample.
+  const isRecordedSample = !!definition.recorded;
+  if (elements.scratchWrap) {
+    elements.scratchWrap.hidden = !isRecordedSample;
+  }
+  if (isRecordedSample) {
+    updateScratchLabel(definition);
+  }
+}
+
+/* ---------- Scratch Sampler (visual turntable that scratches the selected sample) ---------- */
+function currentScratchSampleId() {
+  const def = getInstrumentDef(state.selectedInstrument);
+  if (def && def.recorded) {
+    return def.id;
+  }
+  return lastRecordedSampleId();
+}
+
+function updateScratchLabel(def) {
+  if (elements.scratchLabel) {
+    elements.scratchLabel.textContent = def ? def.short : "Sample";
+  }
+  if (elements.scratchDisc) {
+    elements.scratchDisc.style.setProperty("--label-color", (def && def.color) || "#63d8ff");
+  }
+}
+
+// Reverse a copy of an AudioBuffer so the scratcher can play the sample backwards.
+function reverseAudioBuffer(ctx, buffer) {
+  const rev = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+  for (let ch = 0; ch < buffer.numberOfChannels; ch += 1) {
+    const src = buffer.getChannelData(ch);
+    const dst = rev.getChannelData(ch);
+    for (let i = 0, n = src.length; i < n; i += 1) {
+      dst[i] = src[n - 1 - i];
+    }
+  }
+  return rev;
+}
+
+function ensureScratchAudio() {
+  const s = state.scratch;
+  if (s.ctx && s.out) {
+    return;
+  }
+  s.ctx = Tone.getContext().rawContext;
+  s.out = s.ctx.createGain();
+  s.out.gain.value = 0.9;
+  s.out.connect(s.ctx.destination);
+}
+
+function scratchLoadSample(id) {
+  const s = state.scratch;
+  if (!id) { s.forward = null; return; }
+  if (!state.sampleBuffers[id] && state.pendingSampleBuffers[id]) {
+    try {
+      buildSampleSampler(id, state.pendingSampleBuffers[id], { autoRename: false, select: false });
+      delete state.pendingSampleBuffers[id];
+    } catch (error) { /* ignore */ }
+  }
+  const toneBuf = state.sampleBuffers[id];
+  const buffer = toneBuf && toneBuf.get ? toneBuf.get() : null;
+  if (!buffer) { s.forward = null; return; }
+  if (s.id === id && s.forward === buffer) {
+    return; // already loaded
+  }
+  s.id = id;
+  s.forward = buffer;
+  try { s.reverse = reverseAudioBuffer(s.ctx, buffer); } catch (error) { s.reverse = buffer; }
+  s.playhead = 0;
+}
+
+// Play a short windowed grain from the current playhead, forwards or backwards, at a speed set by
+// how fast you drag — the essence of a turntable scratch.
+function scratchGrain(dx, speedAbs) {
+  const s = state.scratch;
+  const ctx = s.ctx;
+  if (!ctx || !s.forward) { return; }
+  const now = ctx.currentTime;
+  if (now - s.lastGrainT < 0.018) { return; } // throttle so fast drags don't flood the graph
+  s.lastGrainT = now;
+  const dur = s.forward.duration;
+  if (!dur) { return; }
+  const forward = dx >= 0;
+  const buffer = forward ? s.forward : (s.reverse || s.forward);
+  const speed = Math.min(3.5, Math.max(0.25, speedAbs));
+  s.playhead += dx * 0.005;
+  s.playhead = ((s.playhead % dur) + dur) % dur;
+  const grainLen = Math.min(0.18, Math.max(0.04, 0.14 / speed));
+  const consume = grainLen * speed;
+  let offset = forward ? s.playhead : (dur - s.playhead);
+  offset = Math.min(Math.max(0, offset), Math.max(0, dur - consume - 0.001));
+  try {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = speed;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.85, now + 0.006);
+    env.gain.setValueAtTime(0.85, now + Math.max(0.006, grainLen - 0.02));
+    env.gain.linearRampToValueAtTime(0, now + grainLen);
+    src.connect(env);
+    env.connect(s.out);
+    src.start(now, offset, consume + 0.02);
+    src.stop(now + grainLen + 0.03);
+    src.onended = () => { try { src.disconnect(); env.disconnect(); } catch (error) { /* ignore */ } };
+  } catch (error) { /* ignore */ }
+}
+
+function onScratchDown(event) {
+  const s = state.scratch;
+  if (!s) { return; }
+  event.preventDefault();
+  ensureScratchAudio();
+  startAudio(); // unlock + build the audio graph on this gesture so the sample can load
+  const id = currentScratchSampleId();
+  if (!id) {
+    elements.statusText.textContent = "Record or upload a sample to scratch it";
+    return;
+  }
+  scratchLoadSample(id);
+  s.dragging = true;
+  s.lastX = event.clientX;
+  s.lastT = performance.now();
+  try { elements.scratchDisc.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+  elements.scratchDisc.classList.add("is-scratching");
+}
+
+function onScratchMove(event) {
+  const s = state.scratch;
+  if (!s || !s.dragging) { return; }
+  if (!s.forward) { scratchLoadSample(currentScratchSampleId()); } // retry once the graph/sample is ready
+  const now = performance.now();
+  const dx = event.clientX - s.lastX;
+  const dt = Math.max(1, now - s.lastT);
+  s.lastX = event.clientX;
+  s.lastT = now;
+  s.angle += dx * 1.1;
+  if (elements.scratchVinyl) {
+    elements.scratchVinyl.style.transform = `rotate(${s.angle}deg)`;
+  }
+  if (Math.abs(dx) < 2) { return; }
+  scratchGrain(dx, Math.abs(dx / dt) * 1.4); // px/ms -> playback speed
+}
+
+function onScratchUp(event) {
+  const s = state.scratch;
+  if (!s || !s.dragging) { return; }
+  s.dragging = false;
+  if (elements.scratchDisc) {
+    elements.scratchDisc.classList.remove("is-scratching");
+    try { elements.scratchDisc.releasePointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+  }
+}
+
+function setupScratcher() {
+  const disc = elements.scratchDisc;
+  if (!disc) { return; }
+  state.scratch = {
+    id: null, forward: null, reverse: null, ctx: null, out: null,
+    angle: 0, playhead: 0, lastX: 0, lastT: 0, dragging: false, lastGrainT: 0
+  };
+  disc.addEventListener("pointerdown", onScratchDown);
+  disc.addEventListener("pointermove", onScratchMove);
+  disc.addEventListener("pointerup", onScratchUp);
+  disc.addEventListener("pointerleave", onScratchUp);
+  disc.addEventListener("pointercancel", onScratchUp);
 }
 
 /* ---------- Presets ---------- */
@@ -1391,6 +1603,8 @@ function serializeProject() {
     tempo: elements.tempo.value,
     master: elements.masterVolume.value,
     octave: elements.octaveShift.value,
+    pitch: elements.pvPitch ? elements.pvPitch.value : 0,
+    stretch: elements.pvSpeed ? elements.pvSpeed.value : 1,
     scale: state.scale,
     selectedInstrument: state.selectedInstrument,
     soundType: elements.genSoundType ? elements.genSoundType.value : "sampled",
@@ -1422,6 +1636,52 @@ function saveProject() {
   }
 }
 
+// Export just the STUDIO SETTINGS (no song/tracks) as a small JSON file that other producers can
+// load to instantly match your tempo, tone, amp, effects and pitch/stretch — a shareable preset.
+function serializeSettings() {
+  const fx = {};
+  const inputs = projectFxInputs();
+  Object.keys(inputs).forEach((key) => { if (inputs[key]) { fx[key] = inputs[key].value; } });
+  const settings = {
+    app: "MusicBand Studio Pro",
+    kind: "musicband-settings",
+    version: 1,
+    savedAt: new Date().toISOString(),
+    tempo: elements.tempo.value,
+    master: elements.masterVolume.value,
+    octave: elements.octaveShift.value,
+    pitch: elements.pvPitch ? elements.pvPitch.value : 0,
+    stretch: elements.pvSpeed ? elements.pvSpeed.value : 1,
+    scale: state.scale,
+    selectedInstrument: state.selectedInstrument,
+    soundType: elements.genSoundType ? elements.genSoundType.value : "sampled",
+    guitarDistortion: state.guitarDistortion || "clean",
+    ampTone: state.ampTone,
+    fx
+  };
+  return JSON.stringify(settings, null, 2);
+}
+
+function exportSettings() {
+  try {
+    const json = serializeSettings();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `musicband-settings-${stamp}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    elements.statusText.textContent = "Settings exported \u2014 share the JSON with other producers";
+  } catch (error) {
+    console.error(error);
+    elements.statusText.textContent = "Export failed";
+  }
+}
+
 function triggerLoadProject() {
   if (elements.projectFileInput) {
     elements.projectFileInput.value = "";
@@ -1450,15 +1710,20 @@ function onProjectFileChosen(event) {
   reader.readAsText(file);
 }
 
-// Restore a parsed project into the app (tracks + all settings).
+// Restore a parsed project into the app (tracks + all settings). Also accepts a settings-only file
+// (kind "musicband-settings") shared by another producer — then it applies the settings and keeps
+// your current song.
 function applyProject(project) {
-  if (!project || !Array.isArray(project.tracks)) {
-    elements.statusText.textContent = "Load failed — no tracks in file";
+  if (!project || typeof project !== "object") {
+    elements.statusText.textContent = "Load failed — not a valid file";
     return;
   }
+  const settingsOnly = project.kind === "musicband-settings" || !Array.isArray(project.tracks);
   if (project.tempo != null) { elements.tempo.value = String(project.tempo); }
   if (project.master != null) { elements.masterVolume.value = String(project.master); }
   if (project.octave != null) { elements.octaveShift.value = String(project.octave); state.octaveOffset = Number(project.octave) || 0; }
+  if (project.pitch != null && elements.pvPitch) { elements.pvPitch.value = String(project.pitch); state.pvPitch = Number(project.pitch) || 0; }
+  if (project.stretch != null && elements.pvSpeed) { elements.pvSpeed.value = String(project.stretch); state.pvStretch = Number(project.stretch) || 1; }
   if (project.scale) { state.scale = project.scale; if (elements.scaleSelect) { elements.scaleSelect.value = project.scale; } }
   if (project.soundType && elements.genSoundType) { elements.genSoundType.value = project.soundType; }
   if (project.guitarDistortion) {
@@ -1472,10 +1737,12 @@ function applyProject(project) {
   const fx = project.fx || {};
   Object.keys(inputs).forEach((key) => { if (inputs[key] && fx[key] != null) { inputs[key].value = String(fx[key]); } });
 
-  state.bars = Math.max(2, Math.min(MAX_BARS, Number(project.bars) || DEFAULT_BARS));
-  state.seqTracks = Array.isArray(project.tracks) ? project.tracks : [];
-  state.autoSong = false;
-  seqUid = state.seqTracks.reduce((max, track) => Math.max(max, Number(track.uid) || 0), 0) + 1;
+  if (!settingsOnly) {
+    state.bars = Math.max(2, Math.min(MAX_BARS, Number(project.bars) || DEFAULT_BARS));
+    state.seqTracks = Array.isArray(project.tracks) ? project.tracks : [];
+    state.autoSong = false;
+    seqUid = state.seqTracks.reduce((max, track) => Math.max(max, Number(track.uid) || 0), 0) + 1;
+  }
 
   if (elements.genSoundTypeSeq && elements.genSoundType) { elements.genSoundTypeSeq.value = elements.genSoundType.value; }
   updateBarCount();
@@ -1485,15 +1752,19 @@ function applyProject(project) {
     Tone.Transport.swing = Number(elements.swingMix.value);
     if (state.nodes.master) { state.nodes.master.volume.rampTo(Number(elements.masterVolume.value), 0.1); }
     Object.values(inputs).forEach((input) => { if (input) { input.dispatchEvent(new Event("input")); } });
+    if (elements.pvPitch) { elements.pvPitch.dispatchEvent(new Event("change")); }
+    if (elements.pvSpeed) { elements.pvSpeed.dispatchEvent(new Event("change")); }
     disposeSoundTypeSynths();
     preloadInstruments();
     routeAllChannels();
   }
   const selId = project.selectedInstrument;
   selectInstrument(getInstrumentDef(selId) && instrumentDefs.some((d) => d.id === selId) ? selId : state.selectedInstrument);
-  renderSequencer();
+  if (!settingsOnly) {
+    renderSequencer();
+  }
   renderMixer();
-  elements.statusText.textContent = "Project loaded";
+  elements.statusText.textContent = settingsOnly ? "Settings applied — from a shared file" : "Project loaded";
 }
 
 /* ---------- Pads ---------- */
@@ -1577,11 +1848,14 @@ function triggerPad(definition, pad) {
   }
   if (definition.sample && definition.sample.kind === "drum") {
     playDrum(pad.drum, undefined, 0.92);
+    state.lastDrumPiece = pad.drum;      // remember which drum tone you clicked, for the sequence
+    updateSampleStepAddLabel();
     recordEvent({ kind: "drum", drum: pad.drum });
     return;
   }
   const notes = pad.notes.map(applyOctave);
   playInstrument(definition.id, notes, definition.duration, undefined, 0.78);
+  captureSeqNotes(definition.id, notes); // remember this chord for the Sample Sequence
   recordEvent({ kind: "instrument", instrument: definition.id, notes, duration: definition.duration });
 }
 
@@ -1661,13 +1935,11 @@ function pressPianoKey(note) {
     speakLine("La", 1);
     return;
   }
-  // Polyphonic: keep every played tone ringing so several notes glue into a chord that sounds
-  // together (release them all with Stop Playing, or by switching instruments).
+  // No gluing: each tone plays on its own. Trigger this note and remember it so it releases the
+  // moment its key is lifted. Several keys can still sound together as a chord while held.
   const voice = getInstrumentVoice(definition.id);
   if (voice && typeof voice.triggerAttack === "function") {
     try {
-      const prev = state.heldNotes.get(note);
-      if (prev) { try { prev.voice.triggerRelease(prev.note, Tone.now()); } catch (releaseError) { /* ignore */ } }
       voice.triggerAttack(shifted, Tone.now(), 0.8);
       state.heldNotes.set(note, { voice, note: shifted });
     } catch (error) {
@@ -1676,6 +1948,9 @@ function pressPianoKey(note) {
   } else {
     playInstrument(definition.id, [shifted], definition.duration, undefined, 0.8);
   }
+  // Remember the chord being held so the Sample Sequence can play the notes you choose.
+  const chord = state.heldNotes.size ? Array.from(state.heldNotes.values()).map((entry) => entry.note) : [shifted];
+  captureSeqNotes(definition.id, chord);
   updateStopPlayingButton();
   recordEvent({ kind: "instrument", instrument: definition.id, notes: [shifted], duration: definition.duration });
 }
@@ -1685,14 +1960,17 @@ function releasePianoKey(note) {
     return;
   }
   state.activeKeyNotes.delete(note);
-  // Held tones keep ringing (a glued chord) until Stop Playing; leave the key lit while it sounds.
-  if (state.heldNotes.has(note)) {
-    return;
+  // No gluing: release this tone as soon as its key is lifted.
+  const entry = state.heldNotes.get(note);
+  if (entry) {
+    try { entry.voice.triggerRelease(entry.note, Tone.now()); } catch (error) { /* ignore */ }
+    state.heldNotes.delete(note);
   }
   const keyElement = elements.piano.querySelector(`.key[data-note="${note}"]`);
   if (keyElement) {
     keyElement.classList.remove("is-down");
   }
+  updateStopPlayingButton();
 }
 
 // Release every held (ringing) note.
@@ -2085,6 +2363,11 @@ function toggleSamplePreview() {
 // Loop a sample and keep it playing until Stop Sample is pressed.
 function startSamplePreview(id, def) {
   stopSample();
+  stopSampleStepSequence();
+  // The sample and the loop sequencer are mutually exclusive: starting a sample stops the loop.
+  if (state.isPlaying) {
+    stopTransport();
+  }
   state.previewSamplerId = id;
   state.previewPlayer = playSampleRegion(id, Tone.now() + 0.03, 1, true);
   updateTestSampleButton();
@@ -2118,6 +2401,349 @@ function updateTestSampleButton() {
     ? `<i data-lucide="square"></i><span>Stop Sample</span>`
     : `<i data-lucide="play"></i><span>Play Sample</span>`;
   refreshIcons();
+}
+
+/* ---------- Sample Sequence: multi-instrument step-sequencer (under Amp Tone) ---------- */
+// A drum-machine grid: add several instruments/samples as rows and program each across a
+// selectable length (8 / 16 / 32 steps). It plays them together, and — like Play Sample — is
+// mutually exclusive with the loop sequencer.
+const SEQ_LENGTHS = [8, 16, 32];
+const SEQ_DEFAULT_NOTE = { "Low End": "C2", "Real Acoustic": "C2", "Keys": "C3", "Strings": "C3", "Brass": "C4", "Woodwind": "C5" };
+
+// Trigger any instrument once (used for each active step): with chosen notes it plays that chord
+// (pitched via the sampler for real samples); otherwise samples play their clip, drums hit a kick,
+// and melodic/synth voices play a default note in their range.
+function triggerSeqInstrument(id, time, notes, piece) {
+  const def = getInstrumentDef(id);
+  if (!def || def.vocal) {
+    return;
+  }
+  const isDrum = def.sample && def.sample.kind === "drum";
+  if (isDrum) {
+    try { playDrum(piece || "kick", time, 0.9); } catch (error) { /* ignore */ }
+    return;
+  }
+  // Play the chosen chord/notes when the row has them (pitched via the sampler for real samples).
+  if (notes && notes.length) {
+    try { playInstrument(id, notes, def.duration || "2n", time, 0.85); } catch (error) { /* ignore */ }
+    return;
+  }
+  if (def.recorded) {
+    try { playSampleRegion(id, time, 1, false); } catch (error) { /* ignore */ }
+    return;
+  }
+  const note = SEQ_DEFAULT_NOTE[def.role] || "C3";
+  try { playInstrument(id, [note], def.duration || "8n", time, 0.85); } catch (error) { /* ignore */ }
+}
+
+// Label a row's playback: the chosen chord (melodic), the drum piece (drums), or a placeholder
+// ("clip" for a sample, "tone" for a melodic voice with no chord set).
+function seqRowPlays(row) {
+  const def = getInstrumentDef(row.id);
+  if (def && def.sample && def.sample.kind === "drum") {
+    return DRUM_PIECE_LABELS[row.piece] || "Kick";
+  }
+  if (row.notes && row.notes.length) {
+    return row.notes.join(" ");
+  }
+  return def && def.recorded ? "clip" : "tone";
+}
+
+// Remember the notes/chord last played on an instrument so the next "Add" inserts THAT tone as its
+// own row — the same way clicking a drum pad chooses which drum tone to insert.
+function captureSeqNotes(id, notes) {
+  if (!id || !notes || !notes.length) {
+    return;
+  }
+  const def = getInstrumentDef(id);
+  if (!def || def.vocal || (def.sample && def.sample.kind === "drum")) {
+    return; // drums choose a piece by pad; vocals have no pitched chord
+  }
+  state.lastPlayedNotes[id] = notes.slice();
+  if (id === state.selectedInstrument) {
+    updateSampleStepAddLabel();
+  }
+}
+
+// Update just one row's "plays" chip in place (no full re-render), keyed by the row's unique uid.
+function refreshSeqRowChip(row) {
+  if (!elements.sampleStepGrid || !row) {
+    return;
+  }
+  const chip = elements.sampleStepGrid.querySelector(`.seq-notes[data-row-uid="${row.uid}"]`);
+  if (!chip) {
+    return;
+  }
+  const def = getInstrumentDef(row.id);
+  const isDrum = def && def.sample && def.sample.kind === "drum";
+  chip.textContent = seqRowPlays(row);
+  chip.classList.toggle("has-notes", isDrum || !!(row.notes && row.notes.length));
+}
+
+// The Add button shows exactly what will be inserted as a new row: a DRUM piece (Kick / Snare / …)
+// for drums, or the instrument plus the chord you're playing (e.g. "Piano · C3 E3 G3") for everything
+// else — so you can insert one tone at a time for ANY instrument.
+function updateSampleStepAddLabel() {
+  if (!elements.sampleStepAdd) {
+    return;
+  }
+  const sel = getInstrumentDef(state.selectedInstrument);
+  const canAdd = sel && !sel.vocal;
+  elements.sampleStepAdd.disabled = !canAdd;
+  let label = "instrument";
+  if (canAdd) {
+    if (sel.sample && sel.sample.kind === "drum") {
+      label = DRUM_PIECE_LABELS[state.lastDrumPiece || "kick"] || "Kick";
+    } else {
+      const notes = state.lastPlayedNotes[sel.id];
+      label = notes && notes.length ? `${sel.short} \u00b7 ${notes.join(" ")}` : sel.short;
+    }
+  }
+  elements.sampleStepAdd.innerHTML = `<i data-lucide="plus"></i><span>Add ${label}</span>`;
+  refreshIcons();
+}
+
+// Add the selected instrument as a new row for the CURRENT tone, so you can build up any instrument
+// one tone at a time: drums insert the last drum pad you clicked (Kick, then Snare…), and melodic /
+// sample instruments insert the chord you're playing (C major, then G major…). The same tone twice
+// is skipped.
+function addSeqInstrument(id) {
+  const def = getInstrumentDef(id);
+  if (!def || def.vocal) {
+    elements.statusText.textContent = "Pick a non-vocal instrument to add to the sequence";
+    return;
+  }
+  const isDrum = def.sample && def.sample.kind === "drum";
+  const piece = isDrum ? (state.lastDrumPiece || "kick") : null;
+  const notes = isDrum ? null : (state.lastPlayedNotes[id] || []).slice();
+  const noteKey = notes && notes.length ? notes.join(",") : "";
+  const exists = state.seqRows.some((row) => {
+    if (row.id !== id) {
+      return false;
+    }
+    if (isDrum) {
+      return row.piece === piece;
+    }
+    return (row.notes && row.notes.length ? row.notes.join(",") : "") === noteKey;
+  });
+  const plays = isDrum
+    ? `Drums \u00b7 ${DRUM_PIECE_LABELS[piece]}`
+    : (notes && notes.length ? `${def.short} \u00b7 ${notes.join(" ")}` : def.short);
+  if (exists) {
+    elements.statusText.textContent = `${plays} is already in the sequence`;
+    return;
+  }
+  state.seqRowUid += 1;
+  state.seqRows.push({
+    uid: state.seqRowUid,
+    id,
+    piece,
+    steps: new Array(state.seqLength).fill(false),
+    notes: notes && notes.length ? notes : null
+  });
+  ensureInstrument(id);
+  renderSampleSteps();
+  elements.statusText.textContent = `Added ${plays} to the sequence`;
+}
+
+function removeSeqRow(uid) {
+  state.seqRows = state.seqRows.filter((row) => row.uid !== uid);
+  renderSampleSteps();
+}
+
+// Change the sequence length (8 / 16 / 32), keeping any already-programmed steps.
+function setSeqLength(length) {
+  const len = SEQ_LENGTHS.includes(length) ? length : 16;
+  state.seqLength = len;
+  state.seqRows.forEach((row) => {
+    const next = new Array(len).fill(false);
+    for (let i = 0; i < Math.min(len, row.steps.length); i += 1) {
+      next[i] = row.steps[i];
+    }
+    row.steps = next;
+  });
+  if (state.sampleStepIndex >= len) {
+    state.sampleStepIndex = 0;
+  }
+  renderSampleSteps();
+}
+
+function renderSampleSteps() {
+  if (!elements.sampleStepGrid) {
+    return;
+  }
+  // Drop rows whose instrument no longer exists (e.g. a deleted sample).
+  state.seqRows = state.seqRows.filter((row) => getInstrumentDef(row.id));
+  if (elements.sampleStepLength) {
+    elements.sampleStepLength.value = String(state.seqLength);
+  }
+  updateSampleStepAddLabel();
+  elements.sampleStepGrid.innerHTML = "";
+  if (!state.seqRows.length) {
+    const hint = document.createElement("div");
+    hint.className = "seq-empty";
+    hint.textContent = "Tap \u201cAdd\u201d to combine instruments here, then program the steps.";
+    elements.sampleStepGrid.append(hint);
+    refreshIcons();
+    return;
+  }
+  state.seqRows.forEach((row) => {
+    const def = getInstrumentDef(row.id);
+    const rowEl = document.createElement("div");
+    rowEl.className = "seq-row";
+    const label = document.createElement("div");
+    label.className = "seq-row-label";
+    label.style.setProperty("--row-color", def.color || "#63d8ff");
+    const labelTop = document.createElement("div");
+    labelTop.className = "seq-label-top";
+    labelTop.innerHTML = `<span class="seq-dot"></span><span class="seq-name">${def.short}</span>`;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "seq-row-remove";
+    remove.textContent = "\u00d7";
+    remove.title = "Remove from sequence";
+    remove.setAttribute("aria-label", `Remove ${def.short} from the sequence`);
+    remove.addEventListener("click", () => removeSeqRow(row.uid));
+    labelTop.append(remove);
+    const isDrumRow = def.sample && def.sample.kind === "drum";
+    const notesChip = document.createElement("button");
+    notesChip.type = "button";
+    notesChip.className = "seq-notes" + (isDrumRow || (row.notes && row.notes.length) ? " has-notes" : "");
+    notesChip.dataset.rowUid = String(row.uid);
+    notesChip.title = isDrumRow
+      ? "The drum tone this row plays \u2014 click another drum pad, then Add, to insert more tones"
+      : "Notes played on active steps \u2014 play a chord on this instrument to set it, or click to reset to the clip / tone";
+    notesChip.textContent = seqRowPlays(row);
+    notesChip.addEventListener("click", () => {
+      if (isDrumRow) {
+        return; // a drum row's tone is chosen by clicking a drum pad, not cleared here
+      }
+      row.notes = null;
+      refreshSeqRowChip(row);
+      elements.statusText.textContent = `${def.short}: back to the ${def.recorded ? "clip" : "default tone"}`;
+    });
+    label.append(labelTop, notesChip);
+    const cells = document.createElement("div");
+    cells.className = "seq-row-cells";
+    cells.style.gridTemplateColumns = `repeat(${state.seqLength}, minmax(0, 1fr))`;
+    for (let i = 0; i < state.seqLength; i += 1) {
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "sample-step" + (row.steps[i] ? " is-on" : "") + (i % 4 === 0 ? " beat" : "");
+      cell.dataset.step = String(i);
+      cell.setAttribute("aria-pressed", String(!!row.steps[i]));
+      cell.setAttribute("aria-label", `${def.short} step ${i + 1}`);
+      cell.addEventListener("click", () => {
+        row.steps[i] = !row.steps[i];
+        cell.classList.toggle("is-on", row.steps[i]);
+        cell.setAttribute("aria-pressed", String(row.steps[i]));
+      });
+      cells.append(cell);
+    }
+    rowEl.append(label, cells);
+    elements.sampleStepGrid.append(rowEl);
+  });
+  highlightSampleStep(state.sampleStepPlaying ? state.sampleStepIndex : -1);
+  refreshIcons();
+}
+
+function highlightSampleStep(index) {
+  if (!elements.sampleStepGrid) {
+    return;
+  }
+  elements.sampleStepGrid.querySelectorAll(".sample-step").forEach((cell) => {
+    cell.classList.toggle("is-playing", Number(cell.dataset.step) === index);
+  });
+}
+
+function updateSampleStepButton() {
+  if (!elements.sampleStepPlay) {
+    return;
+  }
+  const playing = !!state.sampleStepPlaying;
+  elements.sampleStepPlay.setAttribute("aria-pressed", String(playing));
+  elements.sampleStepPlay.innerHTML = playing
+    ? `<i data-lucide="square"></i><span>Stop</span>`
+    : `<i data-lucide="play"></i><span>Play</span>`;
+  refreshIcons();
+}
+
+// Clear the programmed steps but keep the instrument rows.
+function clearSampleSteps() {
+  state.seqRows.forEach((row) => { row.steps = new Array(state.seqLength).fill(false); });
+  renderSampleSteps();
+  elements.statusText.textContent = "Sequence cleared";
+}
+
+async function toggleSampleStepSequence() {
+  if (state.sampleStepPlaying) {
+    stopSampleStepSequence();
+    elements.statusText.textContent = "Sequence stopped";
+    return;
+  }
+  const ready = await startAudio();
+  if (!ready) {
+    return;
+  }
+  if (!state.seqRows.length) {
+    elements.statusText.textContent = "Add at least one instrument to the sequence first";
+    return;
+  }
+  // Make sure every row's instrument is ready (build any pending sample buffers).
+  state.seqRows.forEach((row) => {
+    const def = getInstrumentDef(row.id);
+    if (def && def.recorded && !state.sampleBuffers[row.id] && state.pendingSampleBuffers[row.id]) {
+      const buffer = state.pendingSampleBuffers[row.id];
+      delete state.pendingSampleBuffers[row.id];
+      try { buildSampleSampler(row.id, buffer, { autoRename: false, select: false }); } catch (error) { /* ignore */ }
+    }
+    ensureInstrument(row.id);
+  });
+  startSampleStepSequence();
+}
+
+function startSampleStepSequence() {
+  stopSampleStepSequence();
+  stopSample();                             // Play Sample + the sequence are both "sample music"
+  if (state.isPlaying) { stopTransport(); } // mutually exclusive with the loop sequencer
+  if (!state.seqRows.some((row) => row.steps.some(Boolean))) {
+    elements.statusText.textContent = "Tap the boxes to program a step first";
+    return;
+  }
+  state.sampleStepPlaying = true;
+  state.sampleStepIndex = 0;
+  updateSampleStepButton();
+  const count = state.seqRows.length;
+  elements.statusText.textContent = `Sequencing ${count} instrument${count === 1 ? "" : "s"} \u2014 press Stop to end`;
+  const tick = () => {
+    if (!state.sampleStepPlaying) {
+      return;
+    }
+    const len = state.seqLength;
+    const s = state.sampleStepIndex % len;
+    const t = Tone.now() + 0.02;
+    state.seqRows.forEach((row) => {
+      if (row.steps[s]) {
+        triggerSeqInstrument(row.id, t, row.notes, row.piece);
+      }
+    });
+    highlightSampleStep(s);
+    state.sampleStepIndex = (s + 1) % len;
+    const bpm = Number(elements.tempo.value) || 120;
+    const stepMs = ((60 / bpm) / 4) * 1000; // one 16th note at the current tempo
+    state.sampleStepTimer = window.setTimeout(tick, stepMs);
+  };
+  tick();
+}
+
+function stopSampleStepSequence() {
+  state.sampleStepPlaying = false;
+  if (state.sampleStepTimer) {
+    window.clearTimeout(state.sampleStepTimer);
+    state.sampleStepTimer = null;
+  }
+  highlightSampleStep(-1);
+  updateSampleStepButton();
 }
 
 // Export the selected (or most recent) recorded sample to WAV or MP3 via the download modal.
@@ -2653,7 +3279,7 @@ function makeLayeredVoice(voices) {
 // the chosen Sound Type and drop it on the timeline as a draggable, tempo-tagged region.
 // Render a short piece of real music from the sample instruments offline into an AudioBuffer,
 // so Generate Music can save it as a new sample.
-async function renderStyleMusicBuffer(instrumentDef, styleProfile) {
+async function renderStyleMusicBuffer(instrumentDef, styleProfile, motif) {
   // Generate Music renders in the style of a featured artist (progression + mode + density);
   // with no style it falls back to a neutral pop bed. Timbre still comes from the Sound Type.
   const prog = PROG[styleProfile && styleProfile.progression] || PROG.pop;
@@ -2740,9 +3366,9 @@ async function renderStyleMusicBuffer(instrumentDef, styleProfile) {
       if (drumKit) { drumKit.trigger(piece, at, vel); }
       if (drums && drums.has(piece)) { drums.player(piece).start(at); }
     };
-    // Generate Music picks a fresh melody every time (one of 200 rhythm x contour combos),
-    // so no two generated samples repeat the same tune.
-    const melody = leadMelodyFor(nextMelodyIndex());
+    // Generate Music uses the chosen artist's original signature motif so the clip sounds distinctly
+    // like them; with no specific artist it falls back to a fresh tune from the 200-melody bank.
+    const melody = motif || leadMelodyFor(nextMelodyIndex());
     let contourPos = 0;
     for (let step = 0; step < stepCount; step += 1) {
       const t = step * secondsPerStep;
@@ -2804,9 +3430,161 @@ const SONG_TITLES = [
   "Parallel Skies", "Sapphire Nights", "Endless Reverie", "Hollow Echoes"
 ];
 
+// Real top songs per artist — used ONLY to title a generated clip (song titles aren't copyrightable).
+// The music itself is always original and rendered in the artist's style, never copied. Artists with
+// no entry fall back to the original SONG_TITLES above.
+const ARTIST_SONGS = {
+  "taylor-swift": ["Blank Space", "Shake It Off", "Love Story", "Anti-Hero", "Cruel Summer"],
+  "ariana-grande": ["Thank U, Next", "7 Rings", "No Tears Left to Cry", "Problem", "Into You"],
+  "the-weeknd": ["Blinding Lights", "Starboy", "Save Your Tears", "The Hills", "Can't Feel My Face"],
+  "billie-eilish": ["Bad Guy", "Happier Than Ever", "Everything I Wanted", "Lovely", "Ocean Eyes"],
+  "justin-bieber": ["Sorry", "Love Yourself", "Baby", "Peaches", "Ghost"],
+  "bruno-mars": ["Uptown Funk", "24K Magic", "That's What I Like", "Grenade", "Just the Way You Are"],
+  "lady-gaga": ["Bad Romance", "Poker Face", "Shallow", "Just Dance", "Rain on Me"],
+  "rihanna": ["Umbrella", "Diamonds", "Work", "We Found Love", "Stay"],
+  "dua-lipa": ["Levitating", "Don't Start Now", "New Rules", "Physical", "One Kiss"],
+  "harry-styles": ["As It Was", "Watermelon Sugar", "Sign of the Times", "Adore You", "Late Night Talking"],
+  "drake": ["God's Plan", "Hotline Bling", "One Dance", "In My Feelings", "Started From the Bottom"],
+  "eminem": ["Lose Yourself", "Rap God", "Without Me", "The Real Slim Shady", "Not Afraid"],
+  "kendrick-lamar": ["HUMBLE.", "Alright", "DNA.", "Money Trees", "Swimming Pools"],
+  "kanye-west": ["Stronger", "Gold Digger", "Heartless", "Power", "Flashing Lights"],
+  "sza": ["Kill Bill", "Good Days", "The Weekend", "Snooze", "Broken Clocks"],
+  "post-malone": ["Circles", "Sunflower", "Rockstar", "Congratulations", "Better Now"],
+  "travis-scott": ["Sicko Mode", "Goosebumps", "Highest in the Room", "Antidote", "Butterfly Effect"],
+  "nicki-minaj": ["Super Bass", "Anaconda", "Starships", "Chun-Li", "Moment 4 Life"],
+  "bad-bunny": ["Titi Me Pregunto", "Dakiti", "Me Porto Bonito", "Yo Perreo Sola", "Callaita"],
+  "shakira": ["Hips Don't Lie", "Whenever, Wherever", "Waka Waka", "She Wolf", "Loca"],
+  "bts": ["Dynamite", "Butter", "Boy With Luv", "DNA", "Fake Love"],
+  "j-balvin": ["Mi Gente", "Ginza", "Ay Vamos", "Rojo", "Morado"],
+  "karol-g": ["Tusa", "Bichota", "Provenza", "Mamiii", "China"],
+  "daddy-yankee": ["Gasolina", "Con Calma", "Despacito", "Limbo", "Dura"],
+  "coldplay": ["Yellow", "Viva la Vida", "Fix You", "The Scientist", "Paradise"],
+  "arctic-monkeys": ["Do I Wanna Know?", "505", "R U Mine?", "Fluorescent Adolescent", "Arabella"],
+  "imagine-dragons": ["Believer", "Radioactive", "Thunder", "Demons", "Bones"],
+  "michael-jackson": ["Billie Jean", "Thriller", "Beat It", "Smooth Criminal", "Bad"],
+  "the-beatles": ["Hey Jude", "Let It Be", "Come Together", "Yesterday", "Here Comes the Sun"],
+  "queen": ["Bohemian Rhapsody", "Don't Stop Me Now", "We Will Rock You", "Somebody to Love", "Under Pressure"],
+  "beyonce": ["Halo", "Single Ladies", "Crazy in Love", "Formation", "Cuff It"],
+  "adele": ["Rolling in the Deep", "Hello", "Someone Like You", "Set Fire to the Rain", "Easy on Me"],
+  "ed-sheeran": ["Shape of You", "Perfect", "Thinking Out Loud", "Photograph", "Bad Habits"],
+  "katy-perry": ["Roar", "Firework", "Dark Horse", "Teenage Dream", "California Gurls"],
+  "selena-gomez": ["Lose You to Love Me", "Come & Get It", "Good for You", "Wolves", "Calm Down"],
+  "miley-cyrus": ["Flowers", "Wrecking Ball", "Party in the U.S.A.", "Malibu", "We Can't Stop"],
+  "sia": ["Chandelier", "Cheap Thrills", "Elastic Heart", "Titanium", "Unstoppable"],
+  "sam-smith": ["Stay With Me", "Unholy", "I'm Not the Only One", "Too Good at Goodbyes", "Lay Me Down"],
+  "shawn-mendes": ["Stitches", "Treat You Better", "There's Nothing Holdin' Me Back", "Senorita", "In My Blood"],
+  "camila-cabello": ["Havana", "Senorita", "Never Be the Same", "Don't Go Yet", "Bam Bam"],
+  "charlie-puth": ["Attention", "We Don't Talk Anymore", "One Call Away", "See You Again", "Light Switch"],
+  "halsey": ["Without Me", "Bad at Love", "Colors", "Graveyard", "Nightmare"],
+  "lorde": ["Royals", "Green Light", "Team", "Solar Power", "Tennis Court"],
+  "lana-del-rey": ["Summertime Sadness", "Video Games", "Young and Beautiful", "Born to Die", "West Coast"],
+  "doja-cat": ["Say So", "Woman", "Kiss Me More", "Streets", "Paint the Town Red"],
+  "olivia-rodrigo": ["Drivers License", "Good 4 U", "Vampire", "Deja Vu", "Traitor"],
+  "alicia-keys": ["No One", "Fallin'", "If I Ain't Got You", "Girl on Fire", "Empire State of Mind"],
+  "john-legend": ["All of Me", "Ordinary People", "Green Light", "Save Room", "Tonight"],
+  "frank-ocean": ["Thinkin Bout You", "Pink + White", "Chanel", "Nights", "Lost"],
+  "usher": ["Yeah!", "Confessions", "U Got It Bad", "Burn", "OMG"],
+  "jay-z": ["Empire State of Mind", "99 Problems", "Hard Knock Life", "Run This Town", "Izzo"],
+  "snoop-dogg": ["Drop It Like It's Hot", "Gin and Juice", "Young, Wild & Free", "Who Am I", "Beautiful"],
+  "50-cent": ["In da Club", "Candy Shop", "P.I.M.P.", "21 Questions", "Many Men"],
+  "lil-wayne": ["Lollipop", "A Milli", "6 Foot 7 Foot", "Mrs. Officer", "Love Me"],
+  "j-cole": ["No Role Modelz", "Middle Child", "Work Out", "Wet Dreamz", "G.O.M.D."],
+  "cardi-b": ["Bodak Yellow", "I Like It", "Up", "Money", "Please Me"],
+  "megan-thee-stallion": ["Savage", "Body", "Hot Girl Summer", "Sweetest Pie", "Cry Baby"],
+  "tyler-the-creator": ["Earfquake", "See You Again", "Yonkers", "Wusyaname", "Lumberjack"],
+  "future": ["Mask Off", "Life Is Good", "Jumpman", "Low Life", "Wait for U"],
+  "21-savage": ["A Lot", "Bank Account", "Runnin", "Ric Flair Drip", "No Heart"],
+  "lil-nas-x": ["Old Town Road", "Montero", "Industry Baby", "Panini", "That's What I Want"],
+  "nas": ["N.Y. State of Mind", "If I Ruled the World", "Made You Look", "One Mic", "The World Is Yours"],
+  "ice-cube": ["It Was a Good Day", "Check Yo Self", "No Vaseline", "You Know How We Do It", "Why We Thugs"],
+  "missy-elliott": ["Work It", "Get Ur Freak On", "Lose Control", "Gossip Folks", "The Rain"],
+  "childish-gambino": ["This Is America", "Redbone", "3005", "Feels Like Summer", "Sober"],
+  "mac-miller": ["Self Care", "Good News", "Blue World", "Dang!", "Ladders"],
+  "juice-wrld": ["Lucid Dreams", "All Girls Are the Same", "Robbery", "Legends", "Wishing Well"],
+  "nirvana": ["Smells Like Teen Spirit", "Come as You Are", "Heart-Shaped Box", "In Bloom", "Lithium"],
+  "foo-fighters": ["Everlong", "The Pretender", "Learn to Fly", "My Hero", "Best of You"],
+  "red-hot-chili-peppers": ["Californication", "Under the Bridge", "Can't Stop", "By the Way", "Otherside"],
+  "green-day": ["Boulevard of Broken Dreams", "American Idiot", "Basket Case", "21 Guns", "Good Riddance"],
+  "linkin-park": ["In the End", "Numb", "Crawling", "One Step Closer", "What I've Done"],
+  "metallica": ["Enter Sandman", "Master of Puppets", "Nothing Else Matters", "One", "The Unforgiven"],
+  "ac-dc": ["Back in Black", "Highway to Hell", "Thunderstruck", "T.N.T.", "You Shook Me All Night Long"],
+  "guns-n-roses": ["Sweet Child o' Mine", "November Rain", "Welcome to the Jungle", "Paradise City", "Don't Cry"],
+  "led-zeppelin": ["Stairway to Heaven", "Whole Lotta Love", "Immigrant Song", "Kashmir", "Black Dog"],
+  "pink-floyd": ["Wish You Were Here", "Comfortably Numb", "Another Brick in the Wall", "Time", "Money"],
+  "the-rolling-stones": ["Paint It Black", "Satisfaction", "Gimme Shelter", "Angie", "Start Me Up"],
+  "u2": ["With or Without You", "One", "Beautiful Day", "Sunday Bloody Sunday", "Vertigo"],
+  "radiohead": ["Creep", "Karma Police", "No Surprises", "Paranoid Android", "Fake Plastic Trees"],
+  "pearl-jam": ["Alive", "Black", "Even Flow", "Jeremy", "Yellow Ledbetter"],
+  "bon-jovi": ["Livin' on a Prayer", "It's My Life", "You Give Love a Bad Name", "Wanted Dead or Alive", "Always"],
+  "aerosmith": ["Dream On", "I Don't Want to Miss a Thing", "Walk This Way", "Sweet Emotion", "Crazy"],
+  "the-killers": ["Mr. Brightside", "Somebody Told Me", "When You Were Young", "Human", "The Man"],
+  "muse": ["Uprising", "Starlight", "Supermassive Black Hole", "Madness", "Hysteria"],
+  "fleetwood-mac": ["Dreams", "Go Your Own Way", "The Chain", "Landslide", "Everywhere"],
+  "david-bowie": ["Heroes", "Space Oddity", "Let's Dance", "Life on Mars?", "Starman"],
+  "johnny-cash": ["Hurt", "Ring of Fire", "Folsom Prison Blues", "I Walk the Line", "Man in Black"],
+  "dolly-parton": ["Jolene", "9 to 5", "I Will Always Love You", "Coat of Many Colors", "Islands in the Stream"],
+  "willie-nelson": ["On the Road Again", "Always on My Mind", "Blue Eyes Crying in the Rain", "Crazy", "Whiskey River"],
+  "luke-combs": ["Beautiful Crazy", "Hurricane", "Forever After All", "When It Rains It Pours", "Fast Car"],
+  "morgan-wallen": ["Last Night", "Whiskey Glasses", "Wasted on You", "You Proof", "Thinkin' Bout Me"],
+  "chris-stapleton": ["Tennessee Whiskey", "Broken Halos", "Starting Over", "Fire Away", "Nobody to Blame"],
+  "kacey-musgraves": ["Rainbow", "Follow Your Arrow", "Space Cowboy", "Merry Go Round", "Butterflies"],
+  "zach-bryan": ["Something in the Orange", "Heading South", "Revival", "Oklahoma Smokeshow", "I Remember Everything"],
+  "bob-dylan": ["Like a Rolling Stone", "Blowin' in the Wind", "Knockin' on Heaven's Door", "Hurricane", "Mr. Tambourine Man"],
+  "mumford-sons": ["I Will Wait", "Little Lion Man", "The Cave", "Believe", "Ghosts That We Knew"],
+  "daft-punk": ["Get Lucky", "One More Time", "Harder, Better, Faster, Stronger", "Around the World", "Instant Crush"],
+  "calvin-harris": ["Summer", "This Is What You Came For", "Feel So Close", "One Kiss", "We Found Love"],
+  "david-guetta": ["Titanium", "When Love Takes Over", "Hey Mama", "Memories", "Without You"],
+  "avicii": ["Wake Me Up", "Levels", "Hey Brother", "The Nights", "Waiting for Love"],
+  "marshmello": ["Alone", "Happier", "Silence", "Friends", "Wolves"],
+  "skrillex": ["Bangarang", "Scary Monsters and Nice Sprites", "First of the Year", "Rock n Roll", "Where Are U Now"],
+  "deadmau5": ["Strobe", "Ghosts n Stuff", "I Remember", "The Veldt", "Raise Your Weapon"],
+  "the-chainsmokers": ["Closer", "Something Just Like This", "Don't Let Me Down", "Roses", "Paris"],
+  "zedd": ["Clarity", "Stay", "The Middle", "Break Free", "Beautiful Now"],
+  "tiesto": ["The Business", "Red Lights", "Adagio for Strings", "Wasted", "Secrets"],
+  "swedish-house-mafia": ["Don't You Worry Child", "Save the World", "One", "Greyhound", "Miami 2 Ibiza"],
+  "diplo": ["Lean On", "Where Are U Now", "Get Free", "Revolution", "Express Yourself"],
+  "rosalia": ["Malamente", "Con Altura", "Despecha", "Tuya", "Bizcochito"],
+  "maluma": ["Felices los 4", "Hawai", "Corazon", "Borro Cassette", "Chantaje"],
+  "ozuna": ["Taki Taki", "Baila Baila Baila", "Se Preparo", "Te Bote", "La Modelo"],
+  "anitta": ["Envolver", "Girl from Rio", "Down", "Vai Malandra", "Boys Don't Cry"],
+  "rauw-alejandro": ["Todo de Ti", "Desesperados", "Punto 40", "Baby Hello", "Tattoo"],
+  "peso-pluma": ["Ella Baila Sola", "Bebe Dame", "La Bebe", "PRC", "Rosa Pastel"],
+  "feid": ["Feliz Cumpleanos Ferxxo", "Normal", "Classy 101", "Luna", "Ferxxo 100"],
+  "manu-chao": ["Me Gustas Tu", "Clandestino", "Bongo Bong", "Mr. Bobby", "La Vida Tombola"],
+  "enrique-iglesias": ["Bailando", "Hero", "Escape", "Bailamos", "Subeme la Radio"],
+  "ricky-martin": ["Livin' la Vida Loca", "She Bangs", "La Copa de la Vida", "Maria", "Vente Pa Ca"],
+  "stevie-wonder": ["Superstition", "Isn't She Lovely", "Sir Duke", "I Just Called to Say I Love You", "Higher Ground"],
+  "prince": ["Purple Rain", "When Doves Cry", "Kiss", "Little Red Corvette", "1999"],
+  "whitney-houston": ["I Wanna Dance with Somebody", "I Will Always Love You", "How Will I Know", "Greatest Love of All", "Higher Love"],
+  "aretha-franklin": ["Respect", "Think", "A Natural Woman", "Chain of Fools", "I Say a Little Prayer"],
+  "marvin-gaye": ["What's Going On", "Sexual Healing", "Let's Get It On", "I Heard It Through the Grapevine", "Ain't No Mountain High Enough"],
+  "elton-john": ["Rocket Man", "Tiny Dancer", "Your Song", "I'm Still Standing", "Bennie and the Jets"],
+  "amy-winehouse": ["Rehab", "Back to Black", "Valerie", "You Know I'm No Good", "Love Is a Losing Game"],
+  "ray-charles": ["Georgia on My Mind", "Hit the Road Jack", "I Got a Woman", "What'd I Say", "Unchain My Heart"],
+  "nina-simone": ["Feeling Good", "Sinnerman", "I Put a Spell on You", "My Baby Just Cares for Me", "Ne Me Quitte Pas"],
+  "louis-armstrong": ["What a Wonderful World", "La Vie en Rose", "Hello, Dolly!", "When the Saints Go Marching In", "Dream a Little Dream of Me"],
+  "a-ap-rocky": ["Praise the Lord", "Wild for the Night", "Everyday", "Sundress", "Fashion Killa"]
+};
+
+// Pick one of an artist's real top songs to title a generated clip (titles only — the music stays
+// original, in the artist's style, never copied). Falls back to an original title for artists with no
+// listed catalogue, and avoids repeating the same title twice in a row.
+function pickArtistSong(artistId) {
+  const songs = (artistId && ARTIST_SONGS[artistId] && ARTIST_SONGS[artistId].length) ? ARTIST_SONGS[artistId] : SONG_TITLES;
+  let title = pick(songs);
+  let guard = 0;
+  while (title === state.lastSongTitle && songs.length > 1 && guard < 8) {
+    title = pick(songs);
+    guard += 1;
+  }
+  state.lastSongTitle = title;
+  return title;
+}
+
 async function generateMusicForSelected() {
   const id = state.selectedInstrument;
   const def = getInstrumentDef(id);
+  applyAutoSoundType(); // the system picks a fresh tone each time, not always the same
   const soundType = currentSoundType();
   const soundName = soundType.charAt(0).toUpperCase() + soundType.slice(1);
   // Render the sample in the chosen Style (beside Amp Tone) — random featured artist for "Surprise Me".
@@ -2828,16 +3606,9 @@ async function generateMusicForSelected() {
   }
   elements.statusText.textContent = `Generating ${artist.name} ${soundName} music\u2026`;
   try {
-    const buffer = await renderStyleMusicBuffer(def, artist);
-    const styleSelected = styleChoice !== "random" && (ARTIST_PROFILES[styleChoice] || genreProfiles[styleChoice]);
-    let name;
-    if (styleSelected) {
-      // A specific artist style is chosen -> title the clip like one of their songs.
-      name = `${artist.name} \u2014 ${pick(SONG_TITLES)}`.slice(0, 30);
-    } else {
-      const baseName = (def.sample && def.sample.kind === "melodic") ? def.short : (def.id === "drums" ? "Drums" : "Music");
-      name = `${artist.name} ${baseName}`.slice(0, 24);
-    }
+    const buffer = await renderStyleMusicBuffer(def, artist); // fresh lead melody every render (from the 200-tune bank)
+    // Name the clip after one of the artist's top songs (rendered in their style — not copied).
+    const name = `${artist.name} \u2014 ${pickArtistSong(artistId)}`.slice(0, 34);
     await addSampleBuffer(buffer, name, { autoRename: false, persist: true });
     const newId = state.selectedInstrument;
     startSamplePreview(newId, getInstrumentDef(newId));
@@ -2907,11 +3678,38 @@ async function loadWavFile(file) {
     const context = Tone.getContext().rawContext;
     const audioBuffer = await context.decodeAudioData(arrayBuffer.slice(0));
     const name = (file.name.replace(/\.[^.]+$/, "").trim() || "Upload").slice(0, 24);
-    await addSampleBuffer(audioBuffer, name, { autoRename: false, persist: true });
-    elements.statusText.textContent = `${name} loaded & saved to your browser`;
+    const id = await addSampleBuffer(audioBuffer, name, { autoRename: false, persist: true });
+    // Drop the uploaded audio straight onto the timeline at bar 1 so every uploaded track starts
+    // together and plays in sync with the rest of the song.
+    addUploadedSampleToTimeline(id);
+    elements.statusText.textContent = `${name} added to the timeline at bar 1 \u2014 in sync`;
   } catch (error) {
     console.error(error);
     elements.statusText.textContent = "Could not load that audio file";
+  }
+}
+
+// Place a freshly uploaded sample onto the timeline as a region starting at bar 1, growing the
+// song if the clip is longer than the timeline, so every uploaded track plays in sync from the top.
+function addUploadedSampleToTimeline(instrumentId) {
+  const def = getInstrumentDef(instrumentId);
+  if (!def) {
+    return;
+  }
+  ensureInstrument(instrumentId);
+  const track = generateSamplePart(instrumentId); // sample region; regions start at bar 1
+  track.regionStart = 0; // bar 1 \u2014 all uploaded tracks start together
+  state.seqTracks.push(track);
+  markSongEdited();
+  const neededBars = Math.ceil((track.regionLen || 0) / STEPS_PER_BAR);
+  if (neededBars > state.bars) {
+    setBars(Math.min(MAX_BARS, neededBars)); // grow the song (also re-tiles regions + re-renders)
+  } else {
+    renderSequencer();
+  }
+  const grid = elements.sequenceGrid;
+  if (grid) {
+    grid.scrollTop = grid.scrollHeight;
   }
 }
 
@@ -4279,6 +5077,33 @@ const ARTIST_MELODIES = {
   "queen": { rhythm: [0, 2, 4, 6, 8, 10, 12, 14], contour: [0, 1, 2, 3, 4, 3, 2, 1] }
 };
 
+// Give EVERY artist a stable, original signature motif so their generated music sounds distinctly
+// like them: use the hand-authored ARTIST_MELODIES when present, else derive one deterministically
+// from the artist id (hash -> a fixed rhythm x contour from the 200-tune bank). All original.
+function hashString(text) {
+  let hash = 0;
+  const str = String(text || "");
+  for (let i = 0; i < str.length; i += 1) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function signatureMelodyFor(artistId) {
+  if (artistId && ARTIST_MELODIES[artistId]) {
+    return ARTIST_MELODIES[artistId];
+  }
+  if (!artistId) {
+    return null;
+  }
+  const bank = getMelodyBank();
+  const hash = hashString(artistId);
+  return {
+    rhythm: bank.rhythms[hash % bank.rhythms.length],
+    contour: bank.contours[Math.floor(hash / bank.rhythms.length) % bank.contours.length]
+  };
+}
+
 function buildLead(inst, form, chordAt, motif) {
   const melody = motif || leadMelodyFor(nextMelodyIndex());
   const shift = randInt(0, 2); // small per-song transpose so the same artist never repeats exactly
@@ -4360,8 +5185,8 @@ function buildSongFromProfile(profile, profileId) {
       tracks.push(padTrack);
     }
   }
-  // Always draw a FRESH lead melody from the 200-melody bank so Randomize never repeats the same
-  // tune (each artist's character still comes from its kit/bass/chords/tempo). No vocals here.
+  // Let the system write a fresh lead melody from the 200-tune bank each render, so no two songs
+  // share the same tune (the artist's character still comes from its kit/bass/chords/tempo).
   const motif = profile.melody || null;
   tracks.push(buildLead(profile.lead || pickLeadInstrument(), form, chordAt, motif));
 
@@ -4511,7 +5336,7 @@ function expandArtistRoster() {
   });
 }
 
-function randomizeSequencer() {
+function randomizeSequencer(keepPlaying) {
   const choice = elements.genreSelect ? elements.genreSelect.value : "random";
   let profileId;
   if (choice !== "random" && (ARTIST_PROFILES[choice] || genreProfiles[choice])) {
@@ -4529,11 +5354,16 @@ function randomizeSequencer() {
   }
   state.lastSongId = profileId;
   const profile = ARTIST_PROFILES[profileId] || genreProfiles[profileId];
+  if (!keepPlaying) {
+    applyAutoSoundType(); // vary the tone on a manual randomize (keep the current tone on a live Style switch)
+  }
 
   const result = buildSongFromProfile(profile, profileId);
   state.bars = Math.min(MAX_BARS, result.bars);
   state.seqTracks = result.tracks;
-  state.nextStep = 0;
+  // A live Style switch keeps playing seamlessly: wrap the playhead into the new song instead of resetting it.
+  const total = totalSteps();
+  state.nextStep = keepPlaying && total ? (state.nextStep % total) : 0;
   state.autoSong = true;
   elements.tempo.value = String(result.tempo);
   elements.swingMix.value = String(result.swing);
@@ -4544,8 +5374,9 @@ function randomizeSequencer() {
     Tone.Transport.swing = result.swing;
     preloadInstruments();
   }
+  const songTitle = pickArtistSong(profileId);
   renderSequencer();
-  showGenre(result.name, result.bars);
+  showGenre(`${result.name} \u2014 ${songTitle}`, result.bars);
 }
 
 function showGenre(name, bars) {
@@ -4654,6 +5485,8 @@ async function toggleTransport() {
   }
   state.nextStep = 0;
   state.isPlaying = true;
+  stopSample(); // the loop sequencer and the sample are mutually exclusive: starting the loop stops the sample
+  stopSampleStepSequence();
   Tone.Transport.start("+0.05");
   elements.statusText.textContent = state.isRecording ? "Recording" : "Playing";
   renderPlayButton();
@@ -4868,6 +5701,30 @@ function getInstrumentVoice(instrumentId) {
 // mixer channel so volume/FX still apply.
 function currentSoundType() {
   return elements.genSoundType ? elements.genSoundType.value : "sampled";
+}
+
+// Let the system pick the "tone" itself: choose a fresh Sound Type (never the same twice in a row)
+// so each Generate Music / Randomize Song sounds different without the user choosing one.
+function pickAutoSoundType() {
+  const values = SOUND_TYPE_OPTIONS.map((opt) => opt.value);
+  let value = pick(values);
+  let guard = 0;
+  while (value === state.lastAutoSoundType && values.length > 1 && guard < 12) {
+    value = pick(values);
+    guard += 1;
+  }
+  state.lastAutoSoundType = value;
+  return value;
+}
+
+// Apply an auto-picked tone: reflect it in both Sound Type dropdowns and rebuild the voices so the
+// new timbre is used for live playback and the next render.
+function applyAutoSoundType() {
+  const value = pickAutoSoundType();
+  if (elements.genSoundType) { elements.genSoundType.value = value; }
+  if (elements.genSoundTypeSeq) { elements.genSoundTypeSeq.value = value; }
+  disposeSoundTypeSynths();
+  return value;
 }
 
 // Fill both Sound Type dropdowns (Band Instruments + Loop Sequencer) from SOUND_TYPE_OPTIONS.
@@ -5968,9 +6825,18 @@ function setupGenStyleSelect() {
   elements.genStyleSelect.addEventListener("change", () => {
     if (elements.genreSelect) { elements.genreSelect.value = elements.genStyleSelect.value; }
   });
-  elements.genreSelect.addEventListener("change", () => {
-    if (elements.genStyleSelect) { elements.genStyleSelect.value = elements.genreSelect.value; }
-  });
+  elements.genreSelect.addEventListener("change", onLoopStyleChange);
+}
+
+// Choosing a Style in the Loop Sequencer keeps the two Style selects in sync, and — while the loop
+// is playing — switches the song to that style's melody on the fly WITHOUT stopping (seamless).
+function onLoopStyleChange() {
+  if (elements.genStyleSelect && elements.genreSelect) {
+    elements.genStyleSelect.value = elements.genreSelect.value;
+  }
+  if (state.isPlaying) {
+    randomizeSequencer(true);
+  }
 }
 
 /* ---------- Deferred init (runs after all module constants are defined) ---------- */
@@ -5978,3 +6844,4 @@ populateSoundTypeSelects();
 populateAmpToneSelect();
 expandArtistRoster();
 setupGenStyleSelect();
+setupScratcher();

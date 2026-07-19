@@ -53,6 +53,10 @@
             <i data-lucide="folder-open"></i>
             <span>Load Project</span>
           </button>
+          <button class="command-button" id="exportSettings" type="button" title="Export your studio settings as a JSON file to share with other producers">
+            <i data-lucide="share-2"></i>
+            <span>Export Settings</span>
+          </button>
           <input id="projectFileInput" type="file" accept="application/json,.json" hidden>
         </div>
 
@@ -173,6 +177,41 @@
                 <option value="directions">Directions</option>
               </select>
             </label>
+          </div>
+          <div class="scratch-deck" id="scratchWrap" hidden>
+            <div class="scratch-head">
+              <span class="tiny-label">Scratch Sampler</span>
+              <span class="tiny-label muted">Drag the record to scratch — left is reverse, faster is higher</span>
+            </div>
+            <div class="scratch-platter" id="scratchDisc" role="slider" aria-label="Scratch the selected sample" tabindex="0">
+              <div class="scratch-vinyl" id="scratchVinyl"><span class="scratch-marker"></span></div>
+              <div class="scratch-hub"><span id="scratchLabel">Sample</span></div>
+            </div>
+          </div>
+          <div class="sample-steps" id="sampleStepWrap" hidden>
+            <div class="sample-steps-head">
+              <span class="tiny-label">Sample Sequence</span>
+              <span class="tiny-label muted">Combine instruments &amp; program the steps</span>
+              <div class="sample-steps-actions">
+                <label class="seq-length" for="sampleStepLength"><span>Steps</span>
+                  <select id="sampleStepLength">
+                    <option value="8">8</option>
+                    <option value="16" selected>16</option>
+                    <option value="32">32</option>
+                  </select>
+                </label>
+                <button class="mini-button" id="sampleStepAdd" type="button">
+                  <i data-lucide="plus"></i><span>Add</span>
+                </button>
+                <button class="mini-button" id="sampleStepPlay" type="button" aria-pressed="false">
+                  <i data-lucide="play"></i><span>Play</span>
+                </button>
+                <button class="mini-button" id="sampleStepClear" type="button">
+                  <i data-lucide="eraser"></i><span>Clear</span>
+                </button>
+              </div>
+            </div>
+            <div class="sample-step-grid" id="sampleStepGrid" role="group" aria-label="Program the sample sequence"></div>
           </div>
         </div>
 

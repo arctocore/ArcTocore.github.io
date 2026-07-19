@@ -1008,6 +1008,258 @@ select {
   cursor: default;
 }
 
+/* ---------- Sample step-sequencer (under Amp Tone) ---------- */
+.sample-steps {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 247, 219, 0.04);
+  display: grid;
+  gap: 8px;
+}
+
+.sample-steps-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sample-steps-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.sample-steps-actions .mini-button {
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.sample-step-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.seq-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.seq-row-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.seq-label-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.seq-notes {
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  background: rgba(255, 247, 219, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.seq-notes.has-notes {
+  color: var(--instrument-color, var(--amber));
+  border-color: var(--line-strong);
+}
+
+/* ---------- Scratch Sampler (visual turntable, above Amp Tone) ---------- */
+.scratch-deck {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 247, 219, 0.04);
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.scratch-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-self: stretch;
+}
+
+.scratch-platter {
+  position: relative;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.scratch-platter.is-scratching { cursor: grabbing; }
+
+.scratch-vinyl {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle at 50% 50%, #0a0a0a 0 2px, #242424 2px 4px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.scratch-marker {
+  position: absolute;
+  top: 5px;
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 32%;
+  border-radius: 2px;
+  background: var(--label-color, #63d8ff);
+  box-shadow: 0 0 8px var(--label-color, #63d8ff);
+}
+
+.scratch-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  background: var(--label-color, #63d8ff);
+  color: #0c0c0c;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 6px;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.scratch-hub span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seq-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--row-color, var(--cyan));
+  flex: none;
+}
+
+.seq-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seq-row-remove {
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  line-height: 1;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  flex: none;
+}
+
+.seq-row-remove:hover {
+  border-color: var(--rose);
+  color: var(--rose);
+}
+
+.seq-row-cells {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.seq-empty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 2px;
+}
+
+.seq-length {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.seq-length select {
+  font: inherit;
+  color: var(--ink);
+  background: rgba(255, 247, 219, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+.sample-step {
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 247, 219, 0.06);
+  cursor: pointer;
+  padding: 0;
+  transition: background 120ms ease, box-shadow 120ms ease, transform 60ms ease;
+}
+
+.sample-step.beat {
+  border-color: var(--line-strong);
+}
+
+.sample-step:hover {
+  background: rgba(255, 247, 219, 0.12);
+}
+
+.sample-step.is-on {
+  background: var(--instrument-color, var(--amber));
+  border-color: var(--instrument-color, var(--amber));
+  box-shadow: 0 0 8px rgba(255, 209, 102, 0.5);
+}
+
+.sample-step.is-playing {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  transform: translateY(-1px);
+}
+
 .timeline-speed {
   margin: 12px 0 4px;
 }

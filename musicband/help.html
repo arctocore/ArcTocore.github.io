@@ -287,6 +287,31 @@
       border-radius: 6px; padding: 1px 6px; font-size: 0.82em; color: var(--ink); font-family: inherit;
     }
 
+    /* ---------- Tutorial feature gallery (graphics) ---------- */
+    .tut-gallery {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+      gap: 12px; margin: 24px 0 10px;
+    }
+    .tut-tile {
+      display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center;
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 16px 10px; box-shadow: var(--shadow);
+      transition: transform var(--transition), border-color var(--transition);
+    }
+    .tut-tile:hover { transform: translateY(-3px); border-color: var(--line-strong); }
+    .tut-tile .ico {
+      width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center;
+      font-size: 1.4rem; color: #fff; box-shadow: var(--shadow);
+    }
+    .tut-tile span { font-size: 0.84rem; font-weight: 700; color: var(--ink); }
+    .tut-tile small { font-size: 0.72rem; color: var(--muted); }
+    .ico.c1 { background: linear-gradient(135deg, #ff9f5a, #ff6f87); }
+    .ico.c2 { background: linear-gradient(135deg, #7a5cff, #2aa9d8); }
+    .ico.c3 { background: linear-gradient(135deg, #1fa97a, #63d8ff); }
+    .ico.c4 { background: linear-gradient(135deg, #ffb703, #ff7a5a); }
+    .ico.c5 { background: linear-gradient(135deg, #63d8ff, #7a5cff); }
+    .ico.c6 { background: linear-gradient(135deg, #ff6f87, #9e4cff); }
+
     /* ---------- Responsive ---------- */
     .offcanvas-backdrop-lite { display: none; }
     @media (max-width: 991px) {
@@ -374,7 +399,7 @@
             <div class="card-mb"><div class="card-body">
               <div class="chip-ico bg-coral"><i class="bi bi-magic"></i></div>
               <h3>Generate songs</h3>
-              <p>Randomize a full arrangement in the style of 30 featured artists, each with its own signature melody, groove and progression.</p>
+              <p>Randomize a full arrangement in the style of 130+ featured artists, each with its own original signature melody, groove and progression.</p>
             </div></div>
           </div>
           <div class="col-12 col-md-6 col-xl-3">
@@ -467,8 +492,8 @@
           <div class="col-12 col-md-6 col-xl-4"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-mint"><i class="bi bi-piano"></i></div>
             <h3>Selected &amp; Piano</h3>
-            <p>The performance area: playable pads, a responsive piano keyboard, Record Sample, Record Mic, Generate
-              Music, and Export Sample.</p>
+            <p>The performance area: playable pads, a fully polyphonic piano keyboard, Record Sample, Record Mic, Generate
+              Music, Export Sample, and a multi-instrument Sample Sequence (8 / 16 / 32 steps) under Amp Tone.</p>
           </div></div></div>
           <div class="col-12 col-md-6 col-xl-4"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-violet"><i class="bi bi-sliders"></i></div>
@@ -481,6 +506,12 @@
             <p>A full-width mixer with a fader, mute and solo per track, and a bar-based Loop Sequencer for the whole song.</p>
           </div></div></div>
         </div>
+
+        <div class="card-mb mt-3"><div class="card-body">
+          <p class="mb-0"><i class="bi bi-music-note-list me-2" style="color:var(--amber)"></i>
+            The piano is a standard polyphonic keyboard: hold several keys together to sound a chord, and each note stops the
+            moment you release its key. Press <strong>Stop Playing</strong> to release everything at once.</p>
+        </div></div>
       </section>
 
       <!-- Signal Flow diagram -->
@@ -595,25 +626,27 @@
         <span class="eyebrow"><i class="bi bi-magic"></i> Make Music</span>
         <h2 class="sec-title">Generate, in the style of the greats</h2>
         <p class="lead-text">MusicBand can build whole songs and short samples for you. Nothing is copied from real recordings —
-          each of the 130+ artists is an original blend of tempo, groove and chord progression, and every render pulls a
-          fresh lead melody from a 200-tune bank so you never hear the same song twice.</p>
+          each of the 130+ artists is an original blend of tempo, groove and chord progression, titled after one of their real
+          top-5 songs. The studio chooses a fresh tone and writes a brand-new lead melody on its own every time, so no two
+          renders ever sound the same.</p>
 
         <div class="row g-3 mt-3">
           <div class="col-12 col-lg-6"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-coral"><i class="bi bi-shuffle"></i></div>
             <h3>Randomize Song</h3>
-            <p class="mb-2">Pick a style, or leave it on “Surprise Me” to pull a random title from the whole list of 130+ artists
-              and genres. The studio lays down drums, bass, chords, an optional pad and a fresh lead melody across the timeline.</p>
-            <p>“Surprise Me” never repeats the last title, and the lead melody is drawn anew every time — so each Randomize is a
-              different song.</p>
+            <p class="mb-2">Pick an artist or genre, or leave it on “Surprise Me”. The studio lays down drums, bass, chords, an
+              optional pad and a fresh lead across the timeline, and titles it after one of that artist's real top-5 songs.</p>
+            <p>Each Randomize picks a different tone (Sound Type) and writes a brand-new melody on its own — so even the same
+              artist never sounds the same twice.</p>
           </div></div></div>
           <div class="col-12 col-lg-6"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-amber"><i class="bi bi-wand"></i></div>
             <h3>Generate Music sample</h3>
             <p class="mb-2">Generate Music renders a short clip for the selected instrument in the Style you choose beside Amp Tone —
-              a specific artist or “Surprise Me” for a random one — using a fresh melody every time, and saves it as a new
-              sample you can drop on the timeline.</p>
-            <p>It respects your chosen Sound Type, amp tone and guitar distortion, so the sample matches your live sound.</p>
+              a specific artist or “Surprise Me” for a random one — letting the system pick a fresh tone and melody each time,
+              names it after one of that artist's top songs, and saves it as a new sample you can drop on the timeline.</p>
+            <p>The system chooses the Sound Type for you and layers it with your amp tone and guitar distortion, so every clip
+              sounds a little different.</p>
           </div></div></div>
         </div>
 
@@ -681,15 +714,44 @@
         <div class="row g-3 mt-3">
           <div class="col-12 col-lg-6"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-coral"><i class="bi bi-record-circle"></i></div>
-            <h3>Record samples</h3>
-            <p>Rec Sample captures whatever the studio is playing; Record Mic captures your microphone. Uploaded WAV files
-              work too. Each recording lands in its own slot with a fader and channel.</p>
+            <h3>Record &amp; upload samples</h3>
+            <p>Rec Sample captures whatever the studio is playing; Record Mic captures your microphone; and you can upload a
+              WAV or MP3. Each lands in its own slot with a fader and channel — and an uploaded track drops straight onto the
+              timeline at bar 1, so every upload plays in sync with the song.</p>
           </div></div></div>
           <div class="col-12 col-lg-6"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-violet"><i class="bi bi-soundwave"></i></div>
             <h3>Pitch &amp; Stretch</h3>
             <p>The toolbar's Pitch and Stretch sliders drive PhaseVocoder.js: Pitch shifts by semitones while keeping length,
               and Stretch changes length while keeping pitch — applied to your samples and to the final export.</p>
+          </div></div></div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-lg-6"><div class="card-mb"><div class="card-body">
+            <div class="chip-ico bg-amber"><i class="bi bi-grid-3x3"></i></div>
+            <h3>Sample-sequence drum machine</h3>
+            <p>Under Amp Tone, tap <strong>Add</strong> to layer instruments as rows in one grid, pick a length of
+              <strong>8, 16 or 32</strong> steps, then program each row. Choose a tone first — click a drum pad
+              (Kick, Snare, Hi-Hat…) or play a chord on any instrument (C major, then G major…) — and each
+              <strong>Add</strong> inserts that exact tone as its own row. So you can stack two piano chords, three
+              drum pieces and a bassline together. Press Play to loop it all, and Clear to reset.</p>
+          </div></div></div>
+          <div class="col-12 col-lg-6"><div class="card-mb"><div class="card-body">
+            <div class="chip-ico bg-sky"><i class="bi bi-arrow-left-right"></i></div>
+            <h3>Sample &amp; loop stay out of each other's way</h3>
+            <p>Sample playback and the Loop Sequencer are mutually exclusive: starting a sample — Play Sample, Generate
+              Music or the step-sequencer — stops the loop, and starting the loop stops the sample.</p>
+          </div></div></div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12"><div class="card-mb"><div class="card-body">
+            <div class="chip-ico bg-violet"><i class="bi bi-disc"></i></div>
+            <h3>Scratch Sampler</h3>
+            <p>Select a recorded sample and a visual vinyl turntable appears just above Amp Tone. Drag the record to
+              <strong>scratch</strong> it — drag right to play forward, left for reverse, and the faster you move the
+              higher it pitches, exactly like a DJ working the platter.</p>
           </div></div></div>
         </div>
       </section>
@@ -699,20 +761,26 @@
         <span class="eyebrow"><i class="bi bi-download"></i> Export &amp; Save</span>
         <h2 class="sec-title">Take your track with you</h2>
         <div class="row g-3 mt-3">
-          <div class="col-12 col-md-4"><div class="card-mb"><div class="card-body">
+          <div class="col-6 col-lg-3"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-amber"><i class="bi bi-filetype-wav"></i></div>
             <h3>WAV &amp; MP3</h3>
             <p>Render the whole song — or a single sample — to a downloadable WAV or MP3, encoded right in your browser.</p>
           </div></div></div>
-          <div class="col-12 col-md-4"><div class="card-mb"><div class="card-body">
+          <div class="col-6 col-lg-3"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-mint"><i class="bi bi-save"></i></div>
             <h3>Save Project</h3>
             <p>Save every setting and track to a project file: tempo, effects, sound type, amp tone, distortion and the timeline.</p>
           </div></div></div>
-          <div class="col-12 col-md-4"><div class="card-mb"><div class="card-body">
+          <div class="col-6 col-lg-3"><div class="card-mb"><div class="card-body">
             <div class="chip-ico bg-sky"><i class="bi bi-folder2-open"></i></div>
             <h3>Load Project</h3>
-            <p>Reload a project file any time to pick up exactly where you left off. Recorded audio is stored in your browser.</p>
+            <p>Reload a project — or a shared settings file — any time. Recorded audio is stored in your browser.</p>
+          </div></div></div>
+          <div class="col-6 col-lg-3"><div class="card-mb"><div class="card-body">
+            <div class="chip-ico bg-coral"><i class="bi bi-share"></i></div>
+            <h3>Export Settings</h3>
+            <p>Share your studio setup: <strong>Export Settings</strong> saves your tempo, tone, amp, effects and
+              pitch/stretch as a small JSON file that other producers can load to match your sound.</p>
           </div></div></div>
         </div>
       </section>
@@ -720,9 +788,26 @@
       <!-- Step-by-step tutorial -->
       <section class="doc" id="tutorial">
         <span class="eyebrow"><i class="bi bi-mortarboard"></i> Step-by-Step Tutorial</span>
-        <h2 class="sec-title">Make your first track in seven steps</h2>
-        <p class="lead-text">Follow this walkthrough from a silent studio to a finished, exported song. Each step points to
-          the exact control on the main page.</p>
+        <h2 class="sec-title">Make your first track — 29 hands-on steps</h2>
+        <p class="lead-text">Follow this walkthrough from a silent studio to a finished, exported song. The first seven get you
+          a track fast; the rest go deeper into every studio feature. Each step points to the exact control on the main page.</p>
+
+        <div class="tut-gallery">
+          <div class="tut-tile"><div class="ico c1"><i class="bi bi-collection"></i></div><span>Instruments</span><small>Real samples</small></div>
+          <div class="tut-tile"><div class="ico c2"><i class="bi bi-speaker"></i></div><span>Sound Types</span><small>Synth timbres</small></div>
+          <div class="tut-tile"><div class="ico c4"><i class="bi bi-plug"></i></div><span>Amp Tone</span><small>34 voicings</small></div>
+          <div class="tut-tile"><div class="ico c6"><i class="bi bi-lightning-charge"></i></div><span>Distortion</span><small>Guitar rig</small></div>
+          <div class="tut-tile"><div class="ico c3"><i class="bi bi-grid-3x3-gap"></i></div><span>Sequence</span><small>8 / 16 / 32</small></div>
+          <div class="tut-tile"><div class="ico c5"><i class="bi bi-music-note-beamed"></i></div><span>Chord rows</span><small>Any tone</small></div>
+          <div class="tut-tile"><div class="ico c1"><i class="bi bi-star"></i></div><span>Artists</span><small>130+ styles</small></div>
+          <div class="tut-tile"><div class="ico c2"><i class="bi bi-upload"></i></div><span>Upload</span><small>WAV / MP3</small></div>
+          <div class="tut-tile"><div class="ico c6"><i class="bi bi-mic"></i></div><span>Record</span><small>Mic &amp; output</small></div>
+          <div class="tut-tile"><div class="ico c5"><i class="bi bi-soundwave"></i></div><span>Pitch / Stretch</span><small>Phase vocoder</small></div>
+          <div class="tut-tile"><div class="ico c3"><i class="bi bi-sliders"></i></div><span>Mixer &amp; FX</span><small>Shape the mix</small></div>
+          <div class="tut-tile"><div class="ico c4"><i class="bi bi-download"></i></div><span>Export</span><small>WAV / MP3</small></div>
+          <div class="tut-tile"><div class="ico c6"><i class="bi bi-disc"></i></div><span>Scratch</span><small>DJ turntable</small></div>
+          <div class="tut-tile"><div class="ico c2"><i class="bi bi-share"></i></div><span>Share</span><small>Settings JSON</small></div>
+        </div>
 
         <div class="tut-steps">
           <div class="tut-step">
@@ -780,6 +865,182 @@
               <h3><i class="bi bi-download me-2" style="color:var(--amber)"></i>Export or save</h3>
               <p>Download the finished mix as <strong>WAV</strong> or <strong>MP3</strong>, or <strong>Save Project</strong>
                 to keep every setting and track so you can pick up right where you left off.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">8</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-speaker me-2" style="color:var(--amber)"></i>Choose a Sound Type</h3>
+              <p>In <strong>Band Instruments</strong>, swap an instrument's real timbre for a synth voice — electronic,
+                techno, synth pad, retro, FM and more. It reshapes both live playing and what you generate.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">9</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-plug me-2" style="color:var(--amber)"></i>Dial an Amp Tone</h3>
+              <p>Beside the instrument, pick an <strong>Amp Tone</strong> — drive plus a three-band EQ with 34 voicings
+                from Classic Rock and Jazz to Metal and Lo-Fi. It colours every note through that channel.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">10</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-lightning-charge me-2" style="color:var(--amber)"></i>Add guitar distortion</h3>
+              <p>With the electric guitar selected, the <strong>Distortion</strong> menu adds sizes, angles, distances and
+                directions — drive, bit-crush, space and stereo movement for a full guitar rig.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">11</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-grid-3x3-gap me-2" style="color:var(--amber)"></i>Open the Sample Sequence</h3>
+              <p>Under Amp Tone, the <strong>Sample Sequence</strong> is a mini drum machine. Tap <strong>Add</strong> to
+                layer several instruments as rows in one grid and program each independently.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">12</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-arrows-angle-expand me-2" style="color:var(--amber)"></i>Pick a sequence length</h3>
+              <p>Use the <strong>Steps</strong> selector to make the pattern <strong>8, 16 or 32</strong> steps long.
+                Changing length keeps whatever you have already programmed.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">13</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-music-note-list me-2" style="color:var(--amber)"></i>Insert drum tones</h3>
+              <p>Click a drum pad — Kick, then Snare, then Hi-Hat — and each <strong>Add</strong> inserts that exact drum
+                tone as its own row, so you build a kit one piece at a time.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">14</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-music-note-beamed me-2" style="color:var(--amber)"></i>Play chords into rows</h3>
+              <p>Play a chord on <em>any</em> instrument (a pad or held keys) and the next <strong>Add</strong> inserts that
+                exact chord as its own row — stack a C major and a G major piano row, a bassline and drums together.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">15</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-arrow-repeat me-2" style="color:var(--amber)"></i>Switch Style live</h3>
+              <p>While the loop is playing, choose a new <strong>Style</strong> in the Loop Sequencer and the song switches
+                to that artist's melody on the fly — the beat never stops, so you can audition styles seamlessly.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">16</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-wand me-2" style="color:var(--amber)"></i>Generate an artist sample</h3>
+              <p><strong>Generate Music</strong> renders a clip in the chosen artist's style, picks a fresh tone and melody,
+                and names it after one of that artist's real top songs — then drops it in your sample list.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">17</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-upload me-2" style="color:var(--amber)"></i>Upload your own audio</h3>
+              <p>In <strong>Sample Studio</strong>, upload a <strong>WAV or MP3</strong>. It saves to your browser and drops
+                straight onto the timeline at bar 1, so every upload plays in sync with the song.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">18</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-record-circle me-2" style="color:var(--amber)"></i>Record a sample</h3>
+              <p><strong>Rec Sample</strong> captures whatever the studio is playing into a new slot with its own fader and
+                channel — perfect for bouncing a loop and re-sequencing it.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">19</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-mic me-2" style="color:var(--amber)"></i>Record your microphone</h3>
+              <p><strong>Record MIC</strong> captures your microphone straight into a sample slot, so you can add vocals,
+                claps or found sounds and treat them like any other instrument.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">20</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-soundwave me-2" style="color:var(--amber)"></i>Bend pitch &amp; time</h3>
+              <p>The toolbar's <strong>Pitch</strong> and <strong>Stretch</strong> sliders drive PhaseVocoder.js: shift pitch
+                by semitones while keeping length, or stretch length while keeping pitch — on samples and the export.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">21</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-sliders me-2" style="color:var(--amber)"></i>Balance the Mixer</h3>
+              <p>Open the <strong>Mixer</strong> to set a <strong>fader</strong>, <strong>mute</strong> and <strong>solo</strong>
+                per track. Solo a part to focus on it, or pull faders to blend the arrangement.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">22</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-boombox me-2" style="color:var(--amber)"></i>Sculpt with the Effects Rack</h3>
+              <p>The master <strong>Effects Rack</strong> under the piano adds Reverb, Delay, Feedback, Chorus, Drive,
+                Filter, Crush and Swing — the whole mix flows through it before your speakers.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">23</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-arrows-angle-expand me-2" style="color:var(--amber)"></i>Trim &amp; expand clips</h3>
+              <p>On the timeline, drag either edge of a block inward to shorten it, or outward to grow it — drag past the
+                end and the song adds bars to make room automatically.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">24</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-copy me-2" style="color:var(--amber)"></i>Move, copy &amp; paste</h3>
+              <p>Grab a block's header to slide it, use its <strong>copy</strong> button to duplicate, or select it and press
+                <kbd>Ctrl</kbd>+<kbd>C</kbd> then <kbd>Ctrl</kbd>+<kbd>V</kbd> — the notes travel with the block.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">25</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-rulers me-2" style="color:var(--amber)"></i>Set the song length</h3>
+              <p>In the Loop Sequencer, the <strong>Length</strong> menu sizes a new random song to <strong>Auto</strong> or
+                8–48 bars, and <strong>Add 4 Bars</strong> / <strong>Remove 4</strong> resize the current one.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">26</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-filetype-wav me-2" style="color:var(--amber)"></i>Export WAV or MP3</h3>
+              <p>Render the whole song — or a single sample with <strong>Export Sample</strong> — to a downloadable
+                <strong>WAV</strong> or <strong>MP3</strong>, encoded right in your browser.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">27</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-save me-2" style="color:var(--amber)"></i>Save &amp; reload projects</h3>
+              <p><strong>Save Project</strong> writes every setting and track to a file; <strong>Load Project</strong> brings
+                it all back. Recorded samples stay saved in your browser, ready for next time.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">28</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-disc me-2" style="color:var(--amber)"></i>Scratch a sample like a DJ</h3>
+              <p>Select a recorded sample and the <strong>Scratch Sampler</strong> vinyl appears above Amp Tone. Drag the
+                record left and right to scratch — reverse, forward and pitch all follow your hand.</p>
+            </div>
+          </div>
+          <div class="tut-step">
+            <div class="tut-num">29</div>
+            <div class="tut-body">
+              <h3><i class="bi bi-share me-2" style="color:var(--amber)"></i>Share your settings</h3>
+              <p>Hit <strong>Export Settings</strong> in the top bar to save your tempo, tone, amp, effects and pitch/stretch
+                as a JSON file. Send it to a friend — they just <strong>Load Project</strong> to match your sound.</p>
             </div>
           </div>
         </div>
