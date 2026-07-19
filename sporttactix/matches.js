@@ -11,13 +11,14 @@ Views.matches = function (mount) {
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>${T('matches.date')}</th><th>${T('matches.opponent')}</th><th>${T('matches.type')}</th><th>${T('matches.venue')}</th><th>${T('matches.score')}</th><th>${T('matches.status')}</th><th></th></tr></thead>
+        <thead><tr><th>${T('matches.date')}</th><th>${T('matches.opponent')}</th><th>${T('matches.sport')}</th><th>${T('matches.type')}</th><th>${T('matches.venue')}</th><th>${T('matches.score')}</th><th>${T('matches.status')}</th><th></th></tr></thead>
         <tbody>
           ${matches.map(m => `
             <tr>
               <td>${UI.fmtDate(m.date)}</td>
               <td><strong>${UI.esc(m.home ? T('common.vs') : T('common.at'))} ${UI.esc(m.opponent)}</strong></td>
-              <td><span class="tag">${UI.esc(m.type)}</span></td>
+              <td><span class="tag blue">${UI.esc(SPORTS.name(m.sport || 'handball', I18N.getLang()))}</span></td>
+              <td><span class="tag">${UI.esc(T('matchType.' + m.type) !== 'matchType.' + m.type ? T('matchType.' + m.type) : m.type)}</span></td>
               <td>${UI.esc(m.venue || '—')}</td>
               <td>${m.status === 'finished' ? `<strong>${m.homeScore} : ${m.awayScore}</strong>` : '—'}</td>
               <td><span class="tag ${m.status === 'finished' ? 'green' : 'amber'}">${UI.esc(m.status === 'finished' ? T('matches.finished') : m.status === 'live' ? T('matches.live') : T('matches.scheduled'))}</span></td>
@@ -26,7 +27,7 @@ Views.matches = function (mount) {
                 <button class="btn sm" data-edit="${m.id}">${T('common.edit')}</button>
                 <button class="btn sm danger" data-del="${m.id}">${T('common.delete')}</button>
               </td>
-            </tr>`).join('') || `<tr><td colspan="7" class="empty">${T('common.noData')}</td></tr>`}
+            </tr>`).join('') || `<tr><td colspan="8" class="empty">${T('common.noData')}</td></tr>`}
         </tbody>
       </table>
     </div>`;
@@ -40,16 +41,19 @@ Views.matches = function (mount) {
         <label class="field"><span>${T('matches.opponent')}</span><input id="m_opp" value="${UI.esc(mt.opponent || '')}"></label>
         <div class="row">
           <label class="field"><span>${T('matches.date')}</span><input id="m_date" type="date" value="${dstr}"></label>
-          <label class="field"><span>${T('matches.type')}</span><select id="m_type">${['Friendly', 'League', 'Cup', 'Tournament'].map(x => `<option ${x === mt.type ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+          <label class="field"><span>${T('matches.type')}</span><select id="m_type">${['Friendly', 'League', 'Cup', 'Tournament'].map(x => `<option value="${x}" ${x === mt.type ? 'selected' : ''}>${T('matchType.' + x)}</option>`).join('')}</select></label>
         </div>
         <div class="row">
+          <label class="field"><span>${T('matches.sport')}</span><select id="m_sport">${SPORTS.LIST.map(s => `<option value="${s.id}" ${s.id === (mt.sport || (window.App && App.getSport && App.getSport())) ? 'selected' : ''}>${SPORTS.name(s.id, I18N.getLang())}</option>`).join('')}</select></label>
           <label class="field"><span>${T('matches.venue')}</span><input id="m_venue" value="${UI.esc(mt.venue || '')}"></label>
+        </div>
+        <div class="row">
           <label class="field"><span>${T('matches.home')}/${T('matches.away')}</span><select id="m_home"><option value="1" ${mt.home ? 'selected' : ''}>${T('matches.home')}</option><option value="0" ${mt.home === false ? 'selected' : ''}>${T('matches.away')}</option></select></label>
         </div>
         <div class="row">
           <label class="field"><span>${T('matches.home')} ${T('matches.score')}</span><input id="m_hs" type="number" value="${mt.homeScore || 0}"></label>
           <label class="field"><span>${T('matches.away')} ${T('matches.score')}</span><input id="m_as" type="number" value="${mt.awayScore || 0}"></label>
-          <label class="field"><span>${T('matches.status')}</span><select id="m_status">${['scheduled', 'live', 'finished'].map(x => `<option ${x === mt.status ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+          <label class="field"><span>${T('matches.status')}</span><select id="m_status">${['scheduled', 'live', 'finished'].map(x => `<option value="${x}" ${x === mt.status ? 'selected' : ''}>${T('matches.' + x)}</option>`).join('')}</select></label>
         </div>`,
       footer: `<button class="btn ghost" data-close2>${T('common.cancel')}</button><button class="btn primary" data-save>${T('common.save')}</button>`,
       onOpen: (m, close) => {
@@ -60,6 +64,7 @@ Views.matches = function (mount) {
             opponent: m.querySelector('#m_opp').value.trim(),
             date: new Date(m.querySelector('#m_date').value).getTime(),
             type: m.querySelector('#m_type').value,
+            sport: m.querySelector('#m_sport').value,
             venue: m.querySelector('#m_venue').value.trim(),
             home: m.querySelector('#m_home').value === '1',
             homeScore: +m.querySelector('#m_hs').value,

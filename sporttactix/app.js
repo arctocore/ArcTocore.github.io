@@ -33,6 +33,9 @@ const App = (() => {
     Store.setSetting('lang', l);
     document.querySelectorAll('#langSwitch button').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
     populateSportPicker();
+    Store.getSetting('role', 'Coach').then(role => {
+      const rb = document.getElementById('roleBadge'); if (rb) rb.textContent = T('role.' + role) || role;
+    });
     render();
   }
 
@@ -50,6 +53,16 @@ const App = (() => {
     const lang = I18N.getLang();
     sel.innerHTML = SPORTS.LIST.map(s => `<option value="${s.id}">${SPORTS.name(s.id, lang)}</option>`).join('');
     sel.value = currentSport;
+  }
+
+  // ---- Sound on/off (mutes all app sound effects) ----
+  const SND_ON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>';
+  const SND_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M22 9l-6 6M16 9l6 6"/></svg>';
+  function setSound(on) {
+    window.SoundOn = on;
+    Store.setSetting('sound', on);
+    const b = document.getElementById('soundToggle');
+    if (b) { b.innerHTML = on ? SND_ON : SND_OFF; b.title = on ? T('sound.on') : T('sound.off'); b.classList.toggle('muted', !on); }
   }
 
   // ---- Global search ----
@@ -92,6 +105,8 @@ const App = (() => {
     if (ls) ls.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setLang(b.dataset.lang); });
     const sp = document.getElementById('sportSelect');
     if (sp) sp.addEventListener('change', () => setSport(sp.value));
+    const st = document.getElementById('soundToggle');
+    if (st) st.onclick = () => setSound(window.SoundOn === false);
     const gs = document.getElementById('globalSearch');
     gs.addEventListener('input', () => search(gs.value));
     document.addEventListener('click', e => { if (!e.target.closest('.search-box')) document.getElementById('searchResults').classList.add('hidden'); });
@@ -107,8 +122,8 @@ const App = (() => {
   // ---- Autosave indicator (data persists immediately; this reflects status) ----
   function startAutosave() {
     const ind = document.getElementById('autosaveIndicator');
-    Store.onChange(() => { ind.textContent = 'Saving…'; setTimeout(() => ind.textContent = 'Saved', 400); });
-    setInterval(() => { ind.textContent = 'Auto-saved'; setTimeout(() => ind.textContent = 'Saved', 1500); }, 30000);
+    Store.onChange(() => { ind.textContent = T('autosave.saving'); setTimeout(() => ind.textContent = T('autosave.saved'), 400); });
+    setInterval(() => { ind.textContent = T('autosave.auto'); setTimeout(() => ind.textContent = T('autosave.saved'), 1500); }, 30000);
   }
 
   async function boot() {
@@ -119,7 +134,8 @@ const App = (() => {
     const lang = await Store.getSetting('lang', 'en');
     setLang(lang);
     const role = await Store.getSetting('role', 'Coach');
-    document.getElementById('roleBadge').textContent = role;
+    document.getElementById('roleBadge').textContent = T('role.' + role) || role;
+    setSound(await Store.getSetting('sound', true));
     currentSport = await Store.getSetting('sport', 'handball');
     populateSportPicker();
     bindChrome();
@@ -129,5 +145,9 @@ const App = (() => {
 
   return { go, render, setTheme, setLang, getSport, setSport, boot };
 })();
+
+// Expose globally so view modules (tactics, matches, …) can read/switch the
+// active sport. `const App` alone does not attach to window.
+window.App = App;
 
 window.addEventListener('DOMContentLoaded', App.boot);

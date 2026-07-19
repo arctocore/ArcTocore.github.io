@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#0f172a" />
   <title>SportTactix</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=9" />
   <link rel="manifest" href="manifest.webmanifest" />
 </head>
 <body>
@@ -15,7 +15,27 @@
     <aside id="sidebar" class="sidebar">
       <div class="brand">
         <div class="brand-logo">
-          <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true"><defs><linearGradient id="btl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6a00"/><stop offset="1" stop-color="#ff2d6f"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="12" fill="url(#btl)"/><circle cx="24" cy="24" r="12" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M24 12v24M12 24h24M15.5 15.5l17 17M32.5 15.5l-17 17" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="24" cy="24" r="3.4" fill="#fff"/></svg>
+          <svg viewBox="0 0 48 48" width="36" height="36" aria-hidden="true">
+            <defs>
+              <linearGradient id="stg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffb020"/><stop offset=".5" stop-color="#ff4d6d"/><stop offset="1" stop-color="#7a2bff"/>
+              </linearGradient>
+              <radialGradient id="stGloss" cx="32%" cy="24%" r="80%">
+                <stop offset="0" stop-color="#ffffff" stop-opacity=".55"/><stop offset="55%" stop-color="#ffffff" stop-opacity="0"/>
+              </radialGradient>
+              <linearGradient id="stTop" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffe3b0"/>
+              </linearGradient>
+              <linearGradient id="stBot" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ead6ff"/>
+              </linearGradient>
+            </defs>
+            <rect x="3" y="3" width="42" height="42" rx="13" fill="url(#stg)"/>
+            <rect x="3" y="3" width="42" height="42" rx="13" fill="url(#stGloss)"/>
+            <rect x="3.75" y="3.75" width="40.5" height="40.5" rx="12.2" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="1.3"/>
+            <path d="M33 15H21a5 5 0 0 0 0 10h2.5" fill="none" stroke="url(#stTop)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -0.7)"/>
+            <path d="M26.5 25h.5a5 5 0 0 1 0 10H15" fill="none" stroke="url(#stBot)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 0.7)"/>
+          </svg>
         </div>
         <div class="brand-text">
           <strong>SportTactix</strong>
@@ -49,7 +69,7 @@
       </nav>
       <div class="sidebar-footer">
         <span id="syncStatus" class="sync-badge"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg> <span data-i18n="footer.offline">Offline Ready</span></span>
-        <div class="author">© 2026 ArcToCore — Steen Østerby Rasmussen</div>
+        <div class="author">© 2026 ArcToCore — Steen Østerby Rasmussen · <a href="license.html" target="_blank" rel="noopener" class="license-link" data-i18n="footer.license">License</a></div>
       </div>
     </aside>
 
@@ -73,6 +93,7 @@
             </button>
           </div>
           <span id="autosaveIndicator" class="autosave">Saved</span>
+          <button id="soundToggle" class="icon-btn" title="Sound"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg></button>
           <button id="themeToggle" class="icon-btn" title="Toggle theme"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg></button>
           <div class="role-badge" id="roleBadge">Coach</div>
         </div>
@@ -85,23 +106,28 @@
   <div id="modalHost" class="modal-host hidden"></div>
   <div id="toastHost" class="toast-host"></div>
 
-  <script src="db.js"></script>
-  <script src="i18n.js"></script>
-  <script src="sports.js"></script>
-  <script src="store.js"></script>
-  <script src="ui.js"></script>
-  <script src="dashboard.js"></script>
-  <script src="teams.js"></script>
-  <script src="matches.js"></script>
-  <script src="scouting.js"></script>
-  <script src="statistics.js"></script>
-  <script src="tactics.js"></script>
-  <script src="video.js"></script>
-  <script src="training.js"></script>
-  <script src="exercises.js"></script>
-  <script src="opponents.js"></script>
-  <script src="reports.js"></script>
-  <script src="settings.js"></script>
-  <script src="app.js"></script>
+  <script src="db.js?v=9"></script>
+  <script src="i18n.js?v=9"></script>
+  <script src="sports.js?v=9"></script>
+  <script src="playbook.js?v=9"></script>
+  <script src="store.js?v=9"></script>
+  <script src="ui.js?v=9"></script>
+  <script src="dashboard.js?v=9"></script>
+  <script src="teams.js?v=9"></script>
+  <script src="matches.js?v=9"></script>
+  <script src="scouting.js?v=9"></script>
+  <script src="statistics.js?v=9"></script>
+  <script src="chess.js?v=9"></script>
+  <script src="bridge.js?v=9"></script>
+  <script src="poker.js?v=9"></script>
+  <script src="backgammon.js?v=9"></script>
+  <script src="tactics.js?v=9"></script>
+  <script src="video.js?v=9"></script>
+  <script src="training.js?v=9"></script>
+  <script src="exercises.js?v=9"></script>
+  <script src="opponents.js?v=9"></script>
+  <script src="reports.js?v=9"></script>
+  <script src="settings.js?v=9"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

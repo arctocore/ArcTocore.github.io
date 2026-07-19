@@ -41,6 +41,10 @@ const UI = (() => {
 
   function toast(msg, type = '') {
     const host = document.getElementById('toastHost');
+    // Keep toasts visible when a view is in the Fullscreen API.
+    const fsEl = document.fullscreenElement;
+    if (fsEl && !fsEl.contains(host)) fsEl.appendChild(host);
+    else if (!fsEl && host.parentNode !== document.body) document.body.appendChild(host);
     const t = el(`<div class="toast ${type}">${esc(msg)}</div>`);
     host.appendChild(t);
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 2600);
@@ -49,6 +53,12 @@ const UI = (() => {
   function modal({ title, body, footer, onOpen, width }) {
     const host = document.getElementById('modalHost');
     host.innerHTML = '';
+    // When a view is in the Fullscreen API, only descendants of the fullscreen
+    // element are visible — so move the modal host inside it while open.
+    // Detect across vendor prefixes so it also works in WebKit/Firefox.
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement || null;
+    const homeParent = host.parentNode;
+    if (fsEl && !fsEl.contains(host)) fsEl.appendChild(host);
     const m = el(`
       <div class="modal" style="${width ? 'max-width:' + width + 'px' : ''}">
         <div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-close>${icon('close', 18)}</button></div>
@@ -59,7 +69,10 @@ const UI = (() => {
     if (footer) m.querySelector('.modal-foot').innerHTML = footer;
     host.appendChild(m);
     host.classList.remove('hidden');
-    const close = () => { host.classList.add('hidden'); host.innerHTML = ''; };
+    const close = () => {
+      host.classList.add('hidden'); host.innerHTML = '';
+      if (host.parentNode !== homeParent) homeParent.appendChild(host); // restore original position
+    };
     m.querySelector('[data-close]').onclick = close;
     host.onclick = e => { if (e.target === host) close(); };
     if (onOpen) onOpen(m, close);
@@ -95,3 +108,4 @@ const UI = (() => {
 
   return { esc, el, toast, modal, confirm, fmtDate, fmtClock, statCard, initials, icon };
 })();
+if (typeof window !== 'undefined') window.UI = UI;

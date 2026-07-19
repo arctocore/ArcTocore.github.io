@@ -13,7 +13,7 @@ Views.settings = async function (mount) {
       </div>
       <div class="card">
         <h3>${T('settings.roleAccess')}</h3>
-        <label class="field"><span>${T('settings.activeRole')}</span><select id="s_role">${['Super Admin', 'Club Admin', 'Coach', 'Analyst', 'Player'].map(r => `<option ${r === role ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
+        <label class="field"><span>${T('settings.activeRole')}</span><select id="s_role">${['Super Admin', 'Club Admin', 'Coach', 'Analyst', 'Player'].map(r => `<option value="${r}" ${r === role ? 'selected' : ''}>${T('role.' + r)}</option>`).join('')}</select></label>
         <p style="color:var(--muted);font-size:12px">${T('settings.roleHint')}</p>
       </div>
       <div class="card">
@@ -35,7 +35,7 @@ Views.settings = async function (mount) {
     </div>`;
 
   mount.querySelector('#s_theme').onchange = e => { App.setTheme(e.target.value); };
-  mount.querySelector('#s_role').onchange = e => { Store.setSetting('role', e.target.value); document.getElementById('roleBadge').textContent = e.target.value; };
+  mount.querySelector('#s_role').onchange = e => { Store.setSetting('role', e.target.value); document.getElementById('roleBadge').textContent = T('role.' + e.target.value); };
 
   mount.querySelector('#exportAll').onclick = async () => {
     const dump = {};
@@ -43,7 +43,7 @@ Views.settings = async function (mount) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(dump)], { type: 'application/json' }));
     a.download = 'sporttactix-backup.json'; a.click();
-    UI.toast('Backup exported', 'success');
+    UI.toast(T('settings.exported'), 'success');
   };
   mount.querySelector('#importAll').onchange = e => {
     const f = e.target.files[0]; if (!f) return;
@@ -52,8 +52,8 @@ Views.settings = async function (mount) {
       try {
         const dump = JSON.parse(r.result);
         for (const s of DB.STORES) { if (dump[s]) { await DB.clear(s); await DB.bulkPut(s, dump[s]); } }
-        await Store.loadAll(); UI.toast('Backup imported', 'success'); App.render();
-      } catch { UI.toast('Invalid backup file', 'error'); }
+        await Store.loadAll(); UI.toast(T('settings.imported'), 'success'); App.render();
+      } catch { UI.toast(T('settings.invalidBackup'), 'error'); }
     };
     r.readAsText(f);
   };

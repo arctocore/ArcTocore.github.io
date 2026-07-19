@@ -5,6 +5,9 @@ Views.teams = function (mount) {
   const team = teams[0];
   const players = team ? Store.all('players').filter(p => p.teamId === team.id) : [];
   const coaches = team ? Store.all('coaches').filter(c => c.teamId === team.id) : [];
+  const sportId = (window.App && App.getSport && App.getSport()) || 'handball';
+  // Translate an option value with fallback to the raw value.
+  const tt = (p, v) => { const k = p + '.' + v; const r = T(k); return r === k ? v : r; };
 
   mount.innerHTML = `
     <div class="page-head">
@@ -14,7 +17,7 @@ Views.teams = function (mount) {
     <div class="grid cols-4" style="margin-bottom:16px">
       ${UI.statCard(players.length, T('dash.players'))}
       ${UI.statCard(players.filter(p => p.position === 'Goalkeeper').length, 'GK')}
-      ${UI.statCard(coaches.length, 'Staff')}
+      ${UI.statCard(coaches.length, T('teams.staff'))}
       ${UI.statCard(players.filter(p => p.status === 'active').length, T('status.available'))}
     </div>
     <div class="table-wrap">
@@ -25,10 +28,10 @@ Views.teams = function (mount) {
             <tr>
               <td><strong>${p.number}</strong></td>
               <td><div style="display:flex;align-items:center;gap:10px"><span class="avatar">${UI.initials(p.firstName, p.lastName)}</span>${UI.esc(p.firstName)} ${UI.esc(p.lastName)}</div></td>
-              <td>${UI.esc(p.position)}</td>
+              <td>${UI.esc(tt('pos', p.position))}</td>
               <td>${p.height || '—'} cm</td>
               <td>
-                <span class="tag ${p.status === 'injured' ? 'red' : 'green'}">${UI.esc(p.status === 'injured' ? T('status.injured') : T('status.available'))}</span>
+                <span class="tag ${p.status === 'injured' ? 'red' : p.status === 'suspended' ? 'amber' : 'green'}">${UI.esc(tt('status', p.status || 'active'))}</span>
                 <button class="btn sm danger" data-del="${p.id}" title="${T('common.delete')}">${UI.icon('trash', 14)}</button>
               </td>
               <td style="text-align:right"><button class="btn sm" data-edit="${p.id}">${T('common.edit')}</button></td>
@@ -37,21 +40,21 @@ Views.teams = function (mount) {
       </table>
     </div>
     <div class="card" style="margin-top:16px">
-      <h3>Staff</h3>
-      ${coaches.map(c => `<div style="display:flex;justify-content:space-between;padding:6px 0"><span>${UI.esc(c.name)}</span><span class="tag blue">${UI.esc(c.role)}</span></div>`).join('') || `<p style="color:var(--muted)">${T('common.noData')}</p>`}
+      <h3>${T('teams.staff')}</h3>
+      ${coaches.map(c => `<div style="display:flex;justify-content:space-between;padding:6px 0"><span>${UI.esc(c.name)}</span><span class="tag blue">${UI.esc(tt('coachRole', c.role))}</span></div>`).join('') || `<p style="color:var(--muted)">${T('common.noData')}</p>`}
     </div>`;
 
   function form(p = {}) {
-    const positions = ['Goalkeeper', 'Left Wing', 'Left Back', 'Center Back', 'Right Back', 'Right Wing', 'Pivot'];
+    const positions = SPORTS.positions(sportId);
     UI.modal({
       title: p.id ? T('teams.editPlayer') : T('teams.newPlayer'),
       body: `
         <div class="row"><label class="field"><span>${T('teams.firstName')}</span><input id="f_first" value="${UI.esc(p.firstName || '')}"></label>
         <label class="field"><span>${T('teams.lastName')}</span><input id="f_last" value="${UI.esc(p.lastName || '')}"></label></div>
         <div class="row"><label class="field"><span>${T('teams.number')}</span><input id="f_num" type="number" value="${p.number || ''}"></label>
-        <label class="field"><span>${T('teams.position')}</span><select id="f_pos">${positions.map(x => `<option ${x === p.position ? 'selected' : ''}>${x}</option>`).join('')}</select></label></div>
+        <label class="field"><span>${T('teams.position')}</span><select id="f_pos">${positions.map(x => `<option value="${x}" ${x === p.position ? 'selected' : ''}>${UI.esc(tt('pos', x))}</option>`).join('')}</select></label></div>
         <div class="row"><label class="field"><span>${T('teams.height')} (cm)</span><input id="f_h" type="number" value="${p.height || ''}"></label>
-        <label class="field"><span>${T('teams.status')}</span><select id="f_st"><option ${p.status === 'active' ? 'selected' : ''}>active</option><option ${p.status === 'injured' ? 'selected' : ''}>injured</option><option ${p.status === 'suspended' ? 'selected' : ''}>suspended</option></select></label></div>`,
+        <label class="field"><span>${T('teams.status')}</span><select id="f_st"><option value="active" ${p.status === 'active' ? 'selected' : ''}>${UI.esc(tt('status', 'active'))}</option><option value="injured" ${p.status === 'injured' ? 'selected' : ''}>${UI.esc(tt('status', 'injured'))}</option><option value="suspended" ${p.status === 'suspended' ? 'selected' : ''}>${UI.esc(tt('status', 'suspended'))}</option></select></label></div>`,
       footer: `<button class="btn ghost" data-close2>${T('common.cancel')}</button><button class="btn primary" data-save>${T('common.save')}</button>`,
       onOpen: (m, close) => {
         m.querySelector('[data-close2]').onclick = close;
@@ -65,7 +68,7 @@ Views.teams = function (mount) {
             height: +m.querySelector('#f_h').value,
             status: m.querySelector('#f_st').value
           });
-          if (!obj.firstName) return UI.toast(T('teams.firstName'), 'error');
+          if (!obj.firstName) return UI.toast(T('teams.reqName'), 'error');
           await Store.save('players', obj);
           close(); UI.toast(T('common.save'), 'success'); App.render();
         };
