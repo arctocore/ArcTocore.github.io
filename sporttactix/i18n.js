@@ -66,6 +66,10 @@ const I18N = (() => {
       'boxing.keys': 'Keys — Boxer A: A/D punch, S defend. Boxer B: J/L punch, K defend. Click a glove to punch, click a boxer to raise guard.',
       // Video
       'video.title': 'Video Analysis', 'video.import': 'Import Video', 'video.bookmark': 'Bookmark', 'video.noVideo': 'No video loaded.',
+      'video.subtitle': 'Import, stream, tag, bookmark and create clips',
+      'video.stream': 'Live Stream', 'video.watch': 'Watch', 'video.streaming': 'Stream loaded',
+      'video.streamHint': 'Paste a shareable link from YouTube, Twitch, Vimeo, Dailymotion or Facebook to watch live or on-demand.',
+      'video.badUrl': 'Unsupported or invalid stream URL',
       // Training
       'training.title': 'Training Planner', 'training.newSession': 'New Session', 'training.noSessions': 'No training sessions yet.',
       'training.min': 'min',
@@ -152,6 +156,10 @@ const I18N = (() => {
       'boxing.keys': 'Taster — Bokser A: A/D slag, S forsvar. Bokser B: J/L slag, K forsvar. Klik en handske for at slå, klik en bokser for at hæve gardet.',
       // Video
       'video.title': 'Videoanalyse', 'video.import': 'Importér Video', 'video.bookmark': 'Bogmærke', 'video.noVideo': 'Ingen video indlæst.',
+      'video.subtitle': 'Importér, stream, tag, bogmærk og lav klip',
+      'video.stream': 'Live Stream', 'video.watch': 'Se', 'video.streaming': 'Stream indlæst',
+      'video.streamHint': 'Indsæt et delbart link fra YouTube, Twitch, Vimeo, Dailymotion eller Facebook for at se live eller on-demand.',
+      'video.badUrl': 'Ikke-understøttet eller ugyldig stream-URL',
       // Training
       'training.title': 'Træningsplan', 'training.newSession': 'Ny Session', 'training.noSessions': 'Ingen træningssessioner endnu.',
       'training.min': 'min',

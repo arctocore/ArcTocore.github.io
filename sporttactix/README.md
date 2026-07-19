@@ -42,17 +42,21 @@ Or double-click `index.html` directly.
 - **Share data** — Settings ? *Send to Coach* exports JSON and opens your email client
 - **Help & Tutorials** — see `help.html` (bilingual, with SVG graphics)
 
-## ??? Project Structure
+## Project Structure
 ```
-index.html
+index.html            app shell
+help.html             bilingual help & animated sport tutorials
 manifest.webmanifest
-css/styles.css
-js/
-  db.js          IndexedDB wrapper
-  store.js       data cache, seed data, stats engine
-  ui.js          modal/toast/format helpers
-  app.js         router, search, theme, shortcuts, autosave
-  views/         one file per module
+styles.css            all styles
+db.js                 IndexedDB wrapper
+i18n.js               EN/DA dictionaries + translation helper
+sports.js             sport definitions: courts, formations, icons
+store.js              data cache, seed data, stats engine
+ui.js                 modal/toast/format helpers
+app.js                router, sport picker, search, theme, shortcuts, autosave
+dashboard.js teams.js matches.js scouting.js statistics.js
+tactics.js video.js training.js exercises.js opponents.js
+reports.js settings.js   one file per module (loaded flat from root)
 ```
 
 ## ?? Extending to the full stack

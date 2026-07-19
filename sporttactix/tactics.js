@@ -4,7 +4,7 @@ window.Views = window.Views || {};
 Views.tactics = function (mount) {
   let tool = 'select';
   let color = '#ffd400';
-  let current = loadOrNew();
+  let current;
   let frameIdx = 0;
   let drag = null;      // dragging object
   let drawing = null;   // freehand/shape in progress
@@ -75,6 +75,7 @@ Views.tactics = function (mount) {
   function defaultFrame() {
     return { objects: sport().formation(), shapes: [] };
   }
+  current = loadOrNew();
 
   // ---------- Boxing mode ----------
   let boxLog = [];          // list of {t, actor, action, hit}
@@ -463,7 +464,7 @@ Views.tactics = function (mount) {
           const bo = b.objects.find(x => x.id === o.id) || o;
           const x = (o.x + (bo.x - o.x) * t) / 100 * canvas.width;
           const y = (o.y + (bo.y - o.y) * t) / 100 * canvas.height;
-          if (o.kind === 'ball') drawBall(x, y); else drawPlayer(o, x, y);
+          if (o.kind === 'ball') drawBall(x, y); else if (o.kind === 'boxer') drawBoxer(o, x, y); else drawPlayer(o, x, y);
         });
         if (t >= 1) { clearInterval(step); i = (i + 1) % current.frames.length; if (i === 0) { clearInterval(animTimer); animTimer = null; frameIdx = 0; draw(); } }
       }, 40);

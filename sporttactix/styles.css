@@ -108,6 +108,11 @@ body {
 .box-side { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .box-tag { font-weight: 800; font-size: 14px; text-align: center; }
 
+/* Video streaming embed */
+.embed-frame { position: relative; width: 100%; padding-top: 56.25%; border-radius: 10px; overflow: hidden; background: #000; }
+.embed-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.stream-services { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
 /* Main */
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .topbar {
