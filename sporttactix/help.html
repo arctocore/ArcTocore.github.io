@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SportTactix — Help &amp; Tutorials</title>
+  <style>
+    :root{--bg:#0a0e1a;--surface:#121a2e;--surface2:#0e1526;--border:#24304d;--text:#eef2ff;--soft:#b8c2dc;--muted:#6b7a9e;--primary:#ff6a00;--accent:#22e07a;--danger:#ff3b5c;--radius:14px}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:
+      radial-gradient(1200px 500px at 100% -10%,rgba(255,106,0,.10),transparent 60%),
+      radial-gradient(900px 400px at -10% 110%,rgba(34,224,122,.07),transparent 60%),var(--bg);
+      color:var(--text);line-height:1.6}
+    header{padding:34px 24px;text-align:center;border-bottom:1px solid var(--border)}
+    header .logo{color:var(--primary);filter:drop-shadow(0 0 8px rgba(255,106,0,.6))}
+    header h1{text-transform:uppercase;letter-spacing:1px;margin-top:6px;font-size:28px}
+    header p{color:var(--muted)}
+    .wrap{max-width:960px;margin:0 auto;padding:24px}
+    .lang{position:fixed;top:16px;right:16px;display:flex;gap:6px}
+    .lang button{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:20px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+    .lang button svg{border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
+    .lang button.active{background:linear-gradient(90deg,var(--primary),#ff8a3d);border-color:transparent}
+    nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+    nav.toc a{background:var(--surface);border:1px solid var(--border);color:var(--soft);padding:8px 14px;border-radius:20px;text-decoration:none;font-size:14px}
+    nav.toc a:hover{border-color:var(--primary);color:var(--text)}
+    nav.toc a.active-tab{background:linear-gradient(90deg,var(--primary),#ff8a3d);border-color:transparent;color:#fff}
+    section.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin:18px 0;box-shadow:0 4px 18px rgba(0,0,0,.5)}
+    section.card h2{text-transform:uppercase;letter-spacing:.5px;font-size:19px;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+    section.card h2 .num{width:30px;height:30px;border-radius:50%;background:linear-gradient(90deg,var(--primary),#ff8a3d);display:inline-flex;align-items:center;justify-content:center;font-size:15px}
+    ol,ul{margin:10px 0 10px 22px}
+    li{margin:5px 0;color:var(--soft)}
+    kbd{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px}
+    .tut{display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:center;margin-top:14px}
+    @media(max-width:640px){.tut{grid-template-columns:1fr}}
+    .fig{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:8px}
+    .tag{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:2px 10px;font-size:12px;color:var(--soft)}
+    .callout{border-left:4px solid var(--primary);background:var(--surface2);padding:10px 14px;border-radius:8px;margin:12px 0;color:var(--soft)}
+    footer{text-align:center;color:var(--muted);padding:30px;border-top:1px solid var(--border)}
+    a.back{color:var(--primary);text-decoration:none;font-weight:600}
+    .sym{display:inline-block;width:1em;height:1em;vertical-align:-0.15em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .sym.solid{fill:currentColor;stroke:none}
+    .dot-rec{color:var(--danger)}
+    [data-lang-da]{display:none}
+    body.da [data-lang-en]{display:none}
+    body.da [data-lang-da]{display:initial}
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></symbol>
+      <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="14 6 20 12 14 18"/></symbol>
+      <symbol id="i-pass" viewBox="0 0 24 24"><line x1="5" y1="19" x2="19" y2="5" stroke-dasharray="4 3"/><polyline points="12 5 19 5 19 12"/></symbol>
+      <symbol id="i-run" viewBox="0 0 24 24"><line x1="4" y1="12" x2="18" y2="12" stroke-dasharray="4 3"/><polyline points="13 7 19 12 13 17"/></symbol>
+      <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2a8 8 0 0 1-7-4l-2.5-4a2 2 0 0 1 3.4-2L7 14"/></symbol>
+      <symbol id="i-whistle" viewBox="0 0 24 24"><path d="M2 12a6 6 0 0 0 12 0V9h8l-2 4a8 8 0 1 1-8-8h2"/><circle cx="8" cy="12" r="2"/></symbol>
+      <symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7L22 6"/></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></symbol>
+      <symbol id="i-left" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="11 6 5 12 11 18"/></symbol>
+    </defs>
+  </svg>
+  <div class="lang">
+    <button id="btnEn" class="active" onclick="setLang('en')"><svg viewBox="0 0 60 30" width="20" height="12" aria-hidden="true"><clipPath id="fen"><rect width="60" height="30"/></clipPath><g clip-path="url(#fen)"><rect width="60" height="30" fill="#012169"/><path d="M0,0 60,30M60,0 0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 60,30M60,0 0,30" stroke="#C8102E" stroke-width="4"/><path d="M30,0 V30M0,15 H60" stroke="#fff" stroke-width="10"/><path d="M30,0 V30M0,15 H60" stroke="#C8102E" stroke-width="6"/></g></svg> EN</button>
+    <button id="btnDa" onclick="setLang('da')"><svg viewBox="0 0 37 28" width="20" height="12" aria-hidden="true"><rect width="37" height="28" fill="#C8102E"/><rect x="12" width="4" height="28" fill="#fff"/><rect y="12" width="37" height="4" fill="#fff"/></svg> DA</button>
+  </div>
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 48 48" width="60" height="60" aria-hidden="true"><defs><linearGradient id="hl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6a00"/><stop offset="1" stop-color="#ff2d6f"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="12" fill="url(#hl)"/><circle cx="24" cy="24" r="12" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M24 12v24M12 24h24M15.5 15.5l17 17M32.5 15.5l-17 17" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="24" cy="24" r="3.4" fill="#fff"/></svg>
+    </div>
+    <h1>SportTactix</h1>
+    <p data-lang-en>Help &amp; Tutorials — how to use the app</p>
+    <p data-lang-da>Hjælp &amp; Vejledninger — sådan bruger du appen</p>
+    <p style="margin-top:10px"><a class="back" href="index.html"><svg class="sym"><use href="#i-left"/></svg> <span data-lang-en>Back to app</span><span data-lang-da>Tilbage til appen</span></a></p>
+  </header>
+
+  <div class="wrap">
+    <nav class="toc">
+      <a href="#start"><span data-lang-en>Getting Started</span><span data-lang-da>Kom godt i gang</span></a>
+      <a href="#board"><span data-lang-en>Tactical Board</span><span data-lang-da>Taktiktavle</span></a>
+      <a href="#shoot"><span data-lang-en>Shooting &amp; Magnet</span><span data-lang-da>Skud &amp; Magnet</span></a>
+      <a href="#record"><span data-lang-en>Record Video</span><span data-lang-da>Optag Video</span></a>
+      <a href="#sporttut"><span data-lang-en>Sport Tutorials</span><span data-lang-da>Sports-vejledninger</span></a>
+      <a href="#scout"><span data-lang-en>Live Scouting</span><span data-lang-da>Live Registrering</span></a>
+      <a href="#share"><span data-lang-en>Share Data</span><span data-lang-da>Del Data</span></a>
+      <a href="#keys"><span data-lang-en>Shortcuts</span><span data-lang-da>Genveje</span></a>
+    </nav>
+
+    <!-- 1. Getting started -->
+    <section class="card" id="start">
+      <h2><span class="num">1</span> <span data-lang-en>Getting Started</span><span data-lang-da>Kom godt i gang</span></h2>
+      <p data-lang-en>SportTactix runs fully in your browser and works offline
+      <p data-lang-da>SportTactix kører fuldt ud i din browser og virker offline
+      <div class="tut">
+        <div class="fig">
+          <svg viewBox="0 0 280 150" width="100%">
+            <rect x="0" y="0" width="70" height="150" rx="8" fill="#0e1526" stroke="#24304d"/>
+            <rect x="8" y="14" width="54" height="12" rx="4" fill="#ff6a00"/>
+            <rect x="8" y="34" width="54" height="10" rx="4" fill="#24304d"/>
+            <rect x="8" y="50" width="54" height="10" rx="4" fill="#24304d"/>
+            <rect x="8" y="66" width="54" height="10" rx="4" fill="#24304d"/>
+            <rect x="82" y="10" width="188" height="20" rx="8" fill="#0e1526" stroke="#24304d"/>
+            <g stroke="#6b7a9e" fill="none" stroke-width="1.5"><circle cx="93" cy="20" r="3.5"/><line x1="95.5" y1="22.5" x2="98" y2="25"/></g>
+            <text x="104" y="24" fill="#6b7a9e" font-size="10">search…</text>
+            <rect x="82" y="40" width="90" height="46" rx="8" fill="#121a2e" stroke="#24304d"/>
+            <rect x="178" y="40" width="92" height="46" rx="8" fill="#121a2e" stroke="#24304d"/>
+            <text x="92" y="66" fill="#eef2ff" font-size="14" font-weight="bold">28</text>
+            <text x="188" y="66" fill="#22e07a" font-size="14" font-weight="bold">72%</text>
+          </svg>
+        </div>
+        <div>
+          <ul>
+            <li data-lang-en>Open the <b>Dashboard</b> to see next/last match, injuries and team form.</li>
+            <li data-lang-da>Åbn <b>Oversigt</b> for at se næste/seneste kamp, skader og holdform.</li>
+            <li data-lang-en>Switch <b>language</b> and <b>theme</b> under <span class="tag">Settings</span>.</li>
+            <li data-lang-da>Skift <b>sprog</b> og <b>tema</b> under <span class="tag">Indstillinger</span>.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Tactical board -->
+    <section class="card" id="board">
+      <h2><span class="num">2</span> <span data-lang-en>Tactical Board</span><span data-lang-da>Taktiktavle</span></h2>
+      <p data-lang-en>Design plays on a handball court. Drag players with the <b>Select</b> tool, draw passes, runs, arrows and shapes, and build multi-frame animations on the timeline.</p>
+      <p data-lang-da>Design spil på en håndboldbane. Træk spillere med <b>Vælg</b>-værktøjet, tegn afleveringer, løb, pile og former, og byg animationer med flere frames på tidslinjen.</p>
+      <div class="tut">
+        <div class="fig">
+          <svg viewBox="0 0 280 200" width="100%">
+            <defs><linearGradient id="pitch" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#0d5c2b"/><stop offset=".5" stop-color="#127a37"/><stop offset="1" stop-color="#0d5c2b"/>
+            </linearGradient></defs>
+            <rect x="6" y="6" width="268" height="188" rx="10" fill="url(#pitch)" stroke="#fff"/>
+            <line x1="6" y1="100" x2="274" y2="100" stroke="#fff"/>
+            <path d="M60 6 A80 80 0 0 0 220 6" fill="none" stroke="#fff"/>
+            <path d="M60 194 A80 80 0 0 1 220 194" fill="none" stroke="#fff"/>
+            <circle cx="90" cy="150" r="11" fill="#0a84ff" stroke="#fff" stroke-width="2"/><text x="90" y="154" fill="#fff" font-size="11" text-anchor="middle">1</text>
+            <circle cx="150" cy="140" r="11" fill="#0a84ff" stroke="#fff" stroke-width="2"/><text x="150" y="144" fill="#fff" font-size="11" text-anchor="middle">3</text>
+            <circle cx="120" cy="70" r="11" fill="#ff3b5c" stroke="#fff" stroke-width="2"/>
+            <circle cx="150" cy="170" r="7" fill="#ffeffb" stroke="#0b1220"/>
+            <path d="M100 148 L142 142" stroke="#22e07a" stroke-dasharray="5 4" stroke-width="2"/>
+          </svg>
+        </div>
+        <div>
+          <ol>
+            <li data-lang-en><b>Select</b> <svg class="sym"><use href="#i-hand"/></svg> — click a player to select it (yellow glow); drag to move.</li>
+            <li data-lang-da><b>Vælg</b> <svg class="sym"><use href="#i-hand"/></svg> — klik på en spiller for at vælge den (gul glød); træk for at flytte.</li>
+            <li data-lang-en><b>Pass <svg class="sym"><use href="#i-pass"/></svg> / Run <svg class="sym"><use href="#i-run"/></svg> / Arrow <svg class="sym"><use href="#i-arrow"/></svg></b> — click-drag to draw dashed or solid paths.</li>
+            <li data-lang-da><b>Aflevering <svg class="sym"><use href="#i-pass"/></svg> / Løb <svg class="sym"><use href="#i-run"/></svg> / Pil <svg class="sym"><use href="#i-arrow"/></svg></b> — klik og træk for at tegne stiplede eller fyldte linjer.</li>
+            <li data-lang-en><b>Add Frame</b>, then move objects, and press <b><svg class="sym solid"><use href="#i-play"/></svg> Play</b> to animate between frames.</li>
+            <li data-lang-da><b>Tilføj Frame</b>, flyt objekterne, og tryk <b><svg class="sym solid"><use href="#i-play"/></svg> Afspil</b> for at animere mellem frames.</li>
+          </ol>
+          <div class="callout" data-lang-en><svg class="sym"><use href="#i-whistle"/></svg> A referee whistle plays each time you press <svg class="sym solid"><use href="#i-play"/></svg> Play — it resets and plays again on every press (never overlaps).</div>
+          <div class="callout" data-lang-da><svg class="sym"><use href="#i-whistle"/></svg> En dommerfløjte lyder hver gang du trykker <svg class="sym solid"><use href="#i-play"/></svg> Afspil — den nulstilles og afspilles igen ved hvert tryk (overlapper aldrig).</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Shooting & magnet -->
+    <section class="card" id="shoot">
+      <h2><span class="num">3</span> <span data-lang-en>Shooting the Ball &amp; Magnet Effect</span><span data-lang-da>Skyd Bolden &amp; Magneteffekt</span></h2>
+      <div class="tut">
+        <div class="fig">
+          <svg viewBox="0 0 280 200" width="100%">
+            <rect x="6" y="6" width="268" height="188" rx="10" fill="url(#pitch)" stroke="#fff"/>
+            <rect x="110" y="8" width="60" height="8" fill="#ffd400"/>
+            <circle cx="140" cy="30" r="12" fill="#f59e0b" stroke="#fff" stroke-width="2"/><text x="140" y="34" fill="#fff" font-size="9" text-anchor="middle">GK</text>
+            <circle cx="90" cy="150" r="13" fill="#0a84ff" stroke="#ffd400" stroke-width="3"/>
+            <circle cx="90" cy="150" r="20" fill="none" stroke="#ffd400" stroke-dasharray="3 3"/>
+            <circle cx="90" cy="133" r="7" fill="#ffeffb" stroke="#0b1220"/>
+            <line x1="97" y1="140" x2="150" y2="45" stroke="#fff" stroke-dasharray="5 5"/>
+            <circle cx="150" cy="45" r="10" fill="none" stroke="#ffd400" stroke-width="3"/>
+            <line x1="140" y1="45" x2="160" y2="45" stroke="#ffd400" stroke-width="3"/>
+            <line x1="150" y1="35" x2="150" y2="55" stroke="#ffd400" stroke-width="3"/>
+          </svg>
+        </div>
+        <div>
+          <ul>
+            <li data-lang-en><b>Magnet:</b> select a player and drag the ball (or the player) close — the ball snaps to the player's hand automatically.</li>
+            <li data-lang-da><b>Magnet:</b> vælg en spiller og træk bolden (eller spilleren) tæt på — bolden hopper automatisk fast ved spillerens hånd.</li>
+            <li data-lang-en>Choose the <b><svg class="sym"><use href="#i-target"/></svg> Shoot</b> tool. A dashed aim line and target marker follow your cursor.</li>
+            <li data-lang-da>Vælg <b><svg class="sym"><use href="#i-target"/></svg> Skud</b>-værktøjet. En stiplet sigtelinje og et målmærke følger markøren.</li>
+            <li data-lang-en>Aim at a <b>teammate</b> <svg class="sym"><use href="#i-right"/></svg> the marker turns green and the ball is <b>passed</b> (that teammate becomes selected).</li>
+            <li data-lang-da>Sigt mod en <b>medspiller</b> <svg class="sym"><use href="#i-right"/></svg> mærket bliver grønt og bolden <b>afleveres</b> (medspilleren bliver valgt).</li>
+            <li data-lang-en>Aim at the <b>goal</b> <svg class="sym"><use href="#i-right"/></svg> the ball is <b>shot</b> to where you point.</li>
+            <li data-lang-da>Sigt mod <b>målet</b> <svg class="sym"><use href="#i-right"/></svg> bolden <b>skydes</b> hen hvor du peger.</li>
+            <li data-lang-en>Aim <b>near the goalkeeper</b> <svg class="sym"><use href="#i-right"/></svg> the marker turns red and the ball <b>magnets to the keeper</b> (a save).</li>
+            <li data-lang-da>Sigt <b>tæt på målmanden</b> <svg class="sym"><use href="#i-right"/></svg> mærket bliver rødt og bolden <b>magnetiseres til målmanden</b> (en redning).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Record -->
+    <section class="card" id="record">
+      <h2><span class="num">4</span> <span data-lang-en>Record as Video (WebM / MP4)</span><span data-lang-da>Optag som Video (WebM / MP4)</span></h2>
+      <p data-lang-en>Record the whole sequence as a single clip and export it to share with players or other coaches.</p>
+      <p data-lang-da>Optag hele sekvensen som ét klip og eksportér det for at dele med spillere eller andre trænere.</p>
+      <ol>
+        <li data-lang-en>Press <b><svg class="sym solid dot-rec"><use href="#i-rec"/></svg> Record</b> — the animation starts automatically and a blinking <span class="tag"><svg class="sym solid dot-rec"><use href="#i-rec"/></svg> REC</span> timer appears.</li>
+        <li data-lang-da>Tryk <b><svg class="sym solid dot-rec"><use href="#i-rec"/></svg> Optag</b> — animationen starter automatisk og en blinkende <span class="tag"><svg class="sym solid dot-rec"><use href="#i-rec"/></svg> REC</span> timer vises.</li>
+        <li data-lang-en>Do your moves / passes / shots on the board.</li>
+        <li data-lang-da>Lav dine bevægelser / afleveringer / skud på tavlen.</li>
+        <li data-lang-en>Press <b><svg class="sym solid"><use href="#i-stop"/></svg> Stop</b>. The clip downloads automatically as <b>.mp4</b> (or <b>.webm</b> if MP4 isn't supported by your browser).</li>
+        <li data-lang-da>Tryk <b><svg class="sym solid"><use href="#i-stop"/></svg> Stop</b>. Klippet downloades automatisk som <b>.mp4</b> (eller <b>.webm</b> hvis MP4 ikke understøttes af din browser).</li>
+      </ol>
+      <div class="callout" data-lang-en><svg class="sym"><use href="#i-video"/></svg> Chrome &amp; Edge record MP4/WebM directly. Safari/Firefox typically export WebM — both play everywhere or can be converted.</div>
+      <div class="callout" data-lang-da><svg class="sym"><use href="#i-video"/></svg> Chrome &amp; Edge optager MP4/WebM direkte. Safari/Firefox eksporterer typisk WebM — begge kan afspilles overalt eller konverteres.</div>
+    </section>
+
+    <!-- Sport tutorials (20 per sport) -->
+    <section class="card" id="sporttut">
+      <h2><span class="num"><svg class="sym"><use href="#i-target"/></svg></span> <span data-lang-en>Sport Tutorials</span><span data-lang-da>Sports-vejledninger</span></h2>
+      <p data-lang-en>Pick a sport to see its dedicated court and <b>20 step-by-step tutorials</b>. Each sport in the Tactical Board has its own surface, formations and animations.</p>
+      <p data-lang-da>Vælg en sportsgren for at se dens dedikerede bane og <b>20 trin-for-trin vejledninger</b>. Hver sportsgren i Taktiktavlen har sin egen bane, opstillinger og animationer.</p>
+      <nav class="toc" id="sportTabs"></nav>
+      <div id="sportTutBody"></div>
+    </section>
+
+    <!-- 5. Live scouting -->
+    <section class="card" id="scout">
+      <h2><span class="num">5</span> <span data-lang-en>Live Scouting</span><span data-lang-da>Live Registrering</span></h2>
+      <ul>
+        <li data-lang-en>Pick the match, press <b>Start</b> to run the clock.</li>
+        <li data-lang-da>Vælg kampen, tryk <b>Start</b> for at køre uret.</li>
+        <li data-lang-en>Choose a category (Attack, Defense, Fouls…), select the player, and tap an event — goals update the scoreboard instantly.</li>
+        <li data-lang-da>Vælg en kategori (Angreb, Forsvar, Frikast…), vælg spilleren og tryk på en hændelse — mål opdaterer scoretavlen med det samme.</li>
+        <li data-lang-en>Every event feeds the <b>Statistics</b> and <b>Reports</b> modules automatically.</li>
+        <li data-lang-da>Hver hændelse føder automatisk <b>Statistik</b>- og <b>Rapport</b>-modulerne.</li>
+      </ul>
+    </section>
+
+    <!-- 6. Share -->
+    <section class="card" id="share">
+      <h2><span class="num">6</span> <span data-lang-en>Share Data with Another Coach</span><span data-lang-da>Del Data med en anden Træner</span></h2>
+      <ol>
+        <li data-lang-en>Go to <span class="tag">Settings <svg class="sym"><use href="#i-right"/></svg> Send to Coach <svg class="sym"><use href="#i-mail"/></svg></span>.</li>
+        <li data-lang-da>Gå til <span class="tag">Indstillinger <svg class="sym"><use href="#i-right"/></svg> Send til Træner <svg class="sym"><use href="#i-mail"/></svg></span>.</li>
+        <li data-lang-en>A <b>JSON</b> file with all your data downloads, and your email app opens with a pre-filled message.</li>
+        <li data-lang-da>En <b>JSON</b>-fil med alle dine data downloades, og din e-mail-app åbnes med en færdig besked.</li>
+        <li data-lang-en>Attach the downloaded file and send.</li>
+        <li data-lang-da>Vedhæft den downloadede fil og send.</li>
+        <li data-lang-en>The receiving coach uses <span class="tag">Settings <svg class="sym"><use href="#i-right"/></svg> Import Backup</span> to load it.</li>
+        <li data-lang-da>Den modtagende træner bruger <span class="tag">Indstillinger <svg class="sym"><use href="#i-right"/></svg> Import Backup</span> for at indlæse den.</li>
+      </ol>
+    </section>
+
+    <!-- 7. Shortcuts -->
+    <section class="card" id="keys">
+      <h2><span class="num">7</span> <span data-lang-en>Keyboard Shortcuts</span><span data-lang-da>Tastaturgenveje</span></h2>
+      <ul>
+        <li><kbd>1</kbd>–<kbd>9</kbd> <span data-lang-en>Switch modules</span><span data-lang-da>Skift modul</span></li>
+        <li><kbd>/</kbd> <span data-lang-en>Focus search</span><span data-lang-da>Fokus på søgning</span></li>
+        <li><kbd>Esc</kbd> <span data-lang-en>Close dialog</span><span data-lang-da>Luk dialog</span></li>
+      </ul>
+    </section>
+  </div>
+
+  <footer>
+    <p>© 2026 ArcToCore — Steen Østerby Rasmussen</p>
+  </footer>
+
+  <script>
+    /* ---- Sport tutorials data: 9 sports × 20 tutorials (EN + DA) ---- */
+    const SPORT_TUTS = {
+      handball: { name:{en:'Handball',da:'Håndbold'}, court:'#0d5c2b',
+        en:['Set up the 6-0 defense wall','Run a wing fast break','Execute a centre-back jump shot','Coordinate a pivot screen','Practice the 3-6 defense','Time the goalkeeper save angle','Draw a crossing play for the backs','Build a two-frame counter animation','Set the seven-metre penalty routine','Defend against a fast pivot','Create a give-and-go on the wing','Position the line player for screens','Animate a spin shot from the back','Cover the empty-goal seventh field player','Practice a defensive 5-1 with a point','Plan a set play from the free-throw line','Time the backcourt jump timing','Rehearse a wing feint and cut','Record a full attack sequence','Review the play frame-by-frame'],
+        da:['Opstil 6-0 forsvarsmuren','Kør et fløj-kontraløb','Udfør et hopskud fra playmaker','Koordiner en stregspiller-skærm','Træn 3-6 forsvaret','Tim målmandens redningsvinkel','Tegn et krydsspil for bagspillerne','Byg en to-frame kontraanimation','Sæt syvmeter-rutinen','Forsvar mod en hurtig streg','Lav en pasningskombination på fløjen','Placer stregspilleren til skærme','Animer et skrueskud fra bagkæden','Dæk den syvende markspiller ved tomt mål','Træn et 5-1 forsvar med en spids','Planlæg et fast spil fra frikastlinjen','Tim bagkædens hoptiming','Øv en fløjfinte og gennembrud','Optag en komplet angrebssekvens','Gennemgå spillet frame-for-frame'] },
+      soccer: { name:{en:'Soccer',da:'Fodbold'}, court:'#159a45',
+        en:['Build a 4-3-3 formation','Play out from the back','Set an offside trap','Practice a wing overlap','Create a through-ball animation','Coach the high press triggers','Set up a corner-kick routine','Rehearse a free-kick wall','Time a striker run behind','Switch play from side to side','Defend a 2-v-1 on the flank','Animate a counter-attack','Set the goalkeeper distribution','Coach midfield triangles','Practice a give-and-go','Plan a pressing trap in midfield','Set a defensive low block','Rehearse a penalty routine','Record a full build-up phase','Review with frame-by-frame playback'],
+        da:['Byg en 4-3-3 formation','Spil op bagfra','Sæt en offside-fælde','Træn en fløj-overlap','Lav en gennemspils-animation','Coach triggerne til høj pres','Opstil en hjørnesparks-rutine','Øv en frisparksmur','Tim angriberens løb bagom','Skift spillet fra side til side','Forsvar en 2-mod-1 på fløjen','Animer et kontraangreb','Sæt målmandens igangsætning','Coach midtbanetrekanter','Træn en pasningskombination','Planlæg en pres-fælde på midtbanen','Sæt et defensivt lavt blok','Øv en straffespark-rutine','Optag en fuld opspilsfase','Gennemgå med frame-for-frame'] },
+      basketball: { name:{en:'Basketball',da:'Basketball'}, court:'#c17a3a',
+        en:['Set up a pick-and-roll','Run a 1-3-1 zone defense','Practice the give-and-go','Coach the fast break lanes','Set a horns offense','Animate a backdoor cut','Rehearse an inbound play','Time a pindown screen','Set the box-out on rebounds','Run a motion offense','Defend the pick-and-roll (hedge)','Create a floppy action','Coach transition defense','Set a zone press','Practice a post-up isolation','Plan an out-of-bounds set','Rehearse a buzzer-beater play','Coach spacing and cuts','Record a full possession','Review frame-by-frame'],
+        da:['Opstil en pick-and-roll','Kør et 1-3-1 zoneforsvar','Træn give-and-go','Coach kontrabanerne','Sæt et horns-angreb','Animer et backdoor-cut','Øv et indkast-spil','Tim en pindown-skærm','Sæt box-out ved rebounds','Kør et motion-angreb','Forsvar pick-and-roll (hedge)','Lav en floppy-aktion','Coach transition-forsvar','Sæt et zonepres','Træn en post-up isolation','Planlæg et sidelinje-spil','Øv et buzzer-beater spil','Coach spacing og cuts','Optag en fuld angrebstur','Gennemgå frame-for-frame'] },
+      boxing: { name:{en:'Boxing',da:'Boksning'}, court:'#2b3a5c',
+        en:['Set the orthodox stance','Practice the jab-cross combo','Coach footwork angles','Rehearse the slip and counter','Time the left hook','Set up ring cutting','Practice the double jab','Coach the body-head combo','Defend with the shell guard','Animate a pivot escape','Rehearse the uppercut setup','Coach distance management','Practice the roll under a hook','Set a feint-and-strike','Plan a corner escape','Coach the check hook','Rehearse counter after the cross','Practice pressure fighting','Record a full combination','Review frame-by-frame'],
+        da:['Sæt den ortodokse stance','Træn jab-cross kombinationen','Coach fodarbejde-vinkler','Øv slip og kontra','Tim venstre hook','Opstil ring-cutting','Træn dobbelt-jab','Coach krop-hoved kombination','Forsvar med shell-guard','Animer en pivot-flugt','Øv uppercut-opsætningen','Coach distancestyring','Træn roll under en hook','Sæt en finte-og-slag','Planlæg en hjørne-flugt','Coach check-hook','Øv kontra efter cross','Træn pres-boksning','Optag en fuld kombination','Gennemgå frame-for-frame'] },
+      volleyball: { name:{en:'Volleyball',da:'Volleyball'}, court:'#d2792b',
+        en:['Set the 5-1 rotation','Practice the serve-receive W','Coach the quick middle attack','Rehearse a back-row attack','Time the setter dump','Set a double block','Coach the libero coverage','Animate a slide attack','Practice the pipe set','Set the jump-serve routine','Coach a perimeter defense','Rehearse a tandem attack','Practice the tip and roll','Set the free-ball transition','Coach the read block','Plan a serving strategy','Rehearse an out-of-system set','Coach net communication','Record a full rally','Review frame-by-frame'],
+        da:['Sæt 5-1 rotationen','Træn serve-modtagning W','Coach det hurtige midterangreb','Øv et baglinje-angreb','Tim hæverens dump','Sæt en dobbeltblok','Coach libero-dækning','Animer et slide-angreb','Træn pipe-hævningen','Sæt jump-serve rutinen','Coach et perimeter-forsvar','Øv et tandem-angreb','Træn tip og roll','Sæt free-ball transition','Coach læse-blokken','Planlæg en serve-strategi','Øv en out-of-system hævning','Coach net-kommunikation','Optag en fuld dueller','Gennemgå frame-for-frame'] },
+      baseball: { name:{en:'Baseball',da:'Baseball'}, court:'#127a37',
+        en:['Set the defensive field positions','Practice a double-play turn','Coach the cutoff and relay','Rehearse a bunt defense','Time a steal at second','Set the outfield alignment','Coach a rundown play','Animate a hit-and-run','Practice the pickoff move','Set the infield-in defense','Coach the pitch sequencing','Rehearse a squeeze play','Practice tagging up','Set the shift for a pull hitter','Coach the catcher framing','Plan a first-and-third defense','Rehearse a sacrifice bunt','Coach base-running leads','Record a full defensive play','Review frame-by-frame'],
+        da:['Sæt de defensive markpositioner','Træn en double-play vending','Coach cutoff og relæ','Øv et bunt-forsvar','Tim et steal ved anden base','Sæt outfield-opstillingen','Coach et rundown-spil','Animer et hit-and-run','Træn pickoff-bevægelsen','Sæt infield-in forsvaret','Coach kastesekvensen','Øv et squeeze-spil','Træn tagging up','Sæt shift mod en pull-hitter','Coach catcherens framing','Planlæg et first-and-third forsvar','Øv en offer-bunt','Coach base-running leads','Optag et fuldt defensivt spil','Gennemgå frame-for-frame'] },
+      rugby: { name:{en:'Rugby',da:'Rugby'}, court:'#159a45',
+        en:['Set a scrum formation','Practice a lineout lift','Coach the ruck cleanout','Rehearse a backline move','Time the offload in contact','Set a maul drive','Coach the defensive line speed','Animate a switch play','Practice the box kick','Set a phase-play pattern','Coach the tackle technique','Rehearse a cross-field kick','Practice the pick-and-go','Set a counter-ruck','Coach the fullback positioning','Plan a set-piece strike','Rehearse a two-man pod','Coach the kick chase line','Record a full phase sequence','Review frame-by-frame'],
+        da:['Sæt en scrum-formation','Træn et lineout-løft','Coach ruck-oprydningen','Øv et baglinje-træk','Tim offload i kontakt','Sæt et maul-drev','Coach forsvarslinjens fart','Animer et switch-spil','Træn box-kicket','Sæt et phase-play mønster','Coach tackle-teknikken','Øv et cross-field spark','Træn pick-and-go','Sæt en counter-ruck','Coach fullbackens placering','Planlæg et set-piece angreb','Øv en to-mands pod','Coach kick-chase linjen','Optag en fuld fase-sekvens','Gennemgå frame-for-frame'] },
+      football: { name:{en:'American Football',da:'Amerikansk Fodbold'}, court:'#127a37',
+        en:['Set an I-formation offense','Practice a slant-flat combo','Coach the zone-blocking scheme','Rehearse a play-action pass','Time the quarterback drop','Set a Cover-2 defense','Coach the blitz package','Animate a screen pass','Practice the read option','Set the shotgun spread','Coach the route tree','Rehearse a goal-line stand','Practice the punt coverage','Set a man-press defense','Coach the offensive line pull','Plan a two-minute drill','Rehearse a trick play','Coach the safety rotation','Record a full offensive series','Review frame-by-frame'],
+        da:['Sæt et I-formation angreb','Træn en slant-flat kombination','Coach zone-blocking systemet','Øv et play-action pasningsspil','Tim quarterbackens drop','Sæt et Cover-2 forsvar','Coach blitz-pakken','Animer et screen-pasningsspil','Træn read-option','Sæt shotgun-spread','Coach rute-træet','Øv en goal-line stand','Træn punt-dækningen','Sæt et man-press forsvar','Coach offensiv linjes pull','Planlæg en to-minutters øvelse','Øv et trick-spil','Coach safety-rotationen','Optag en fuld offensiv serie','Gennemgå frame-for-frame'] },
+      badminton: { name:{en:'Badminton',da:'Badminton'}, court:'#0c7580',
+        en:['Set the ready base position','Practice the high serve','Coach the net drop shot','Rehearse the clear to backcourt','Time the smash and follow','Set the doubles rotation','Coach the drive exchange','Animate a deceptive slice','Practice the backhand clear','Set the front-back defense','Coach the footwork lunge','Rehearse a net kill','Practice the flick serve','Set the attacking side-by-side','Coach the block return','Plan a serve-and-rush','Rehearse a round-the-head shot','Coach shot deception','Record a full rally','Review frame-by-frame'],
+        da:['Sæt klar-basispositionen','Træn den høje serv','Coach net-drop skuddet','Øv clear til bagbanen','Tim smash og opfølgning','Sæt double-rotationen','Coach drive-udvekslingen','Animer en vildledende slice','Træn baghånds-clear','Sæt front-bag forsvaret','Coach fodarbejde-udfaldet','Øv et net-kill','Træn flick-serven','Sæt angribende side-om-side','Coach block-returneringen','Planlæg en serve-and-rush','Øv et round-the-head skud','Coach skud-vildledning','Optag en fuld dueller','Gennemgå frame-for-frame'] }
+    };
+
+    let tutAnim = null;
+    function renderSportTuts(sportKey){
+      const s = SPORT_TUTS[sportKey];
+      const body = document.getElementById('sportTutBody');
+      const rows = [];
+      for(let i=0;i<20;i++){
+        rows.push(
+          '<li>'+
+          '<span data-lang-en><b>'+(i+1)+'.</b> '+s.en[i]+'</span>'+
+          '<span data-lang-da><b>'+(i+1)+'.</b> '+s.da[i]+'</span>'+
+          '</li>'
+        );
+      }
+      body.innerHTML =
+        '<div class="tut">'+
+          '<div class="fig"><canvas id="tutCanvas" width="240" height="320" style="width:100%;border-radius:10px;display:block"></canvas>'+
+            '<div style="text-align:center;margin-top:6px;font-size:12px;color:var(--muted)">'+
+            '<span data-lang-en>Live animation — how '+s.name.en+' is played</span>'+
+            '<span data-lang-da>Live animation — sådan spilles '+s.name.da+'</span></div>'+
+          '</div>'+
+          '<div><ol style="columns:2;column-gap:24px">'+rows.join('')+'</ol></div>'+
+        '</div>';
+      startTutAnimation(sportKey);
+      setLang(document.body.classList.contains('da')?'da':'en');
+    }
+
+    /* Animated sport demos on a canvas: shows players/ball/actions moving. */
+    function startTutAnimation(sportKey){
+      if(tutAnim){ cancelAnimationFrame(tutAnim); tutAnim=null; }
+      const cv = document.getElementById('tutCanvas'); if(!cv) return;
+      const ctx = cv.getContext('2d');
+      const W = cv.width, H = cv.height;
+      const s = SPORT_TUTS[sportKey];
+      let t = 0;
+      function pt(a,b,f){ return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f }; }
+      function disc(x,y,r,fill,stroke){ ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke();} }
+      function courtBase(){ ctx.fillStyle=s.court;ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.strokeRect(8,8,W-16,H-16);ctx.beginPath();ctx.moveTo(8,H/2);ctx.lineTo(W-8,H/2);ctx.stroke(); }
+      function frame(){
+        t += 0.012; const f = (Math.sin(t*Math.PI*2)+1)/2; // 0..1..0 loop
+        ctx.clearRect(0,0,W,H);
+        if(sportKey==='boxing'){ drawBoxingDemo(ctx,W,H,t); }
+        else if(sportKey==='baseball'){ drawBaseballDemo(ctx,W,H,f,courtBase,disc,pt); }
+        else { drawGenericDemo(ctx,W,H,f,sportKey,courtBase,disc,pt); }
+        tutAnim = requestAnimationFrame(frame);
+      }
+      frame();
+    }
+
+    function drawGenericDemo(ctx,W,H,f,key,courtBase,disc,pt){
+      courtBase();
+      // center feature per sport
+      ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;
+      if(key==='basketball'||key==='soccer'||key==='handball'){ ctx.beginPath();ctx.arc(W/2,H/2,26,0,7);ctx.stroke(); }
+      if(key==='volleyball'||key==='badminton'){ ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(8,H/2);ctx.lineTo(W-8,H/2);ctx.stroke();ctx.setLineDash([]); }
+      // attacker moves, passes to teammate, shoots at goal
+      const a = pt({x:60,y:H-60},{x:W/2,y:H/2+30}, f);
+      const mate = {x:W-70,y:H/2+20};
+      const goal = {x:W/2,y:24};
+      const def = pt({x:W/2-30,y:H/2-10},{x:W/2+30,y:H/2-10}, f);
+      // pass then shot path
+      ctx.strokeStyle='rgba(52,199,89,.9)';ctx.lineWidth=2;ctx.setLineDash([6,5]);
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(mate.x,mate.y);ctx.stroke();ctx.setLineDash([]);
+      // ball: first half travels attacker->mate, second half mate->goal
+      let ball;
+      if(f<0.5){ ball = pt(a,mate,f/0.5); } else { ball = pt(mate,goal,(f-0.5)/0.5); }
+      // goal
+      ctx.fillStyle='#ffd400';ctx.fillRect(W/2-24,10,48,7);
+      // players
+      disc(a.x,a.y,11,'#0a84ff','#fff');
+      disc(mate.x,mate.y,11,'#0a84ff','#fff');
+      disc(def.x,def.y,11,'#ff3b5c','#fff');
+      // ball
+      disc(ball.x,ball.y,6,'#ffeffb','#0b1220');
+      // arrow of movement
+      ctx.strokeStyle='rgba(255,255,255,.7)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(60,H-60);ctx.lineTo(a.x,a.y);ctx.stroke();ctx.setLineDash([]);
+    }
+
+    function drawBaseballDemo(ctx,W,H,f,courtBase,disc,pt){
+      ctx.fillStyle='#127a37';ctx.fillRect(0,0,W,H);
+      // diamond
+      const c={x:W/2,y:H-50}, first={x:W-50,y:H/2}, second={x:W/2,y:60}, third={x:50,y:H/2};
+      ctx.fillStyle='#b5651d';ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(first.x,first.y);ctx.lineTo(second.x,second.y);ctx.lineTo(third.x,third.y);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+      // bases
+      [c,first,second,third].forEach(b=>{ ctx.save();ctx.translate(b.x,b.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#fff';ctx.fillRect(-6,-6,12,12);ctx.restore(); });
+      // pitch: ball travels pitcher(center) -> batter(home)
+      const pitcher={x:W/2,y:H/2+20};
+      const ball = pt(pitcher,c,f);
+      disc(pitcher.x,pitcher.y,10,'#ff3b5c','#fff');
+      disc(c.x-14,c.y-6,10,'#0a84ff','#fff'); // batter
+      disc(ball.x,ball.y,5,'#ffeffb','#0b1220');
+    }
+
+    /* Boxing: two boxers viewed from top, gloves punch in & out, guard shown */
+    function drawBoxingDemo(ctx,W,H,t){
+      // ring
+      ctx.fillStyle='#1a2540';ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#2b3a5c';ctx.fillRect(16,16,W-32,H-32);
+      ctx.strokeStyle='#e11';ctx.lineWidth=3;
+      for(let i=0;i<3;i++){const o=16+i*7;ctx.strokeRect(o,o,W-2*o,H-2*o);}
+      // corner posts
+      ctx.fillStyle='#c9d3ee';[[16,16],[W-16,16],[16,H-16],[W-16,H-16]].forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.fill();});
+      const phase = (Math.sin(t*Math.PI*3)+1)/2;     // A punches
+      const phase2 = (Math.sin(t*Math.PI*3+Math.PI)+1)/2; // B punches alternately
+      drawTopBoxer(ctx, W/2, H-90, 1, '#0a84ff', '#ffd400', phase, 'A');
+      drawTopBoxer(ctx, W/2, 90, -1, '#ff3b30', '#e11d48', phase2, 'B');
+    }
+    function drawTopBoxer(ctx, x, y, facing, body, glove, punch, label){
+      // guard ring
+      ctx.beginPath();ctx.arc(x,y,30,0,7);ctx.strokeStyle='rgba(52,199,89,.5)';ctx.lineWidth=5;ctx.stroke();
+      // torso
+      ctx.save();ctx.translate(x,y);
+      ctx.beginPath();ctx.ellipse(0,0,18,24,0,0,7);ctx.fillStyle=body;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+      // head toward facing
+      ctx.beginPath();ctx.arc(0,facing*18,9,0,7);ctx.fillStyle='#f2c9a0';ctx.fill();ctx.strokeStyle='#fff';ctx.stroke();
+      ctx.restore();
+      // gloves: reach forward (toward facing) based on punch amount
+      const reach = 14 + punch*40;
+      const gloves=[{dx:-12,lead:1},{dx:12,lead:0}];
+      gloves.forEach(g=>{
+        const gy = y + facing*(g.lead? reach : 14);
+        const gx = x + g.dx;
+        ctx.beginPath();ctx.moveTo(x+g.dx*0.4,y);ctx.lineTo(gx,gy);ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=4;ctx.stroke();
+        ctx.beginPath();ctx.arc(gx,gy,8,0,7);ctx.fillStyle=glove;ctx.fill();ctx.strokeStyle='#0b1220';ctx.lineWidth=1.5;ctx.stroke();
+      });
+      ctx.fillStyle='#fff';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,x,y);
+    }
+
+    function buildSportTabs(){
+      const tabs = document.getElementById('sportTabs');
+      tabs.innerHTML = Object.keys(SPORT_TUTS).map((k,idx)=>
+        '<a href="#sporttut" data-sport-tab="'+k+'" class="'+(idx===0?'active-tab':'')+'">'+
+        '<span data-lang-en>'+SPORT_TUTS[k].name.en+'</span>'+
+        '<span data-lang-da>'+SPORT_TUTS[k].name.da+'</span></a>'
+      ).join('');
+      tabs.querySelectorAll('[data-sport-tab]').forEach(a=>a.onclick=(e)=>{
+        e.preventDefault();
+        tabs.querySelectorAll('a').forEach(x=>x.classList.remove('active-tab'));
+        a.classList.add('active-tab');
+        renderSportTuts(a.getAttribute('data-sport-tab'));
+      });
+      renderSportTuts(Object.keys(SPORT_TUTS)[0]);
+    }
+
+    function setLang(l){
+      document.body.classList.toggle('da', l === 'da');
+      document.getElementById('btnEn').classList.toggle('active', l === 'en');
+      document.getElementById('btnDa').classList.toggle('active', l === 'da');
+      document.documentElement.setAttribute('lang', l);
+      try { localStorage.setItem('ht_help_lang', l); } catch(e){}
+    }
+    buildSportTabs();
+    try { setLang(localStorage.getItem('ht_help_lang') || 'en'); } catch(e){}
+  </script>
+</body>
+</html>
