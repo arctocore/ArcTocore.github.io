@@ -1427,18 +1427,31 @@ function reverseAudioBuffer(ctx, buffer) {
 
 function ensureScratchAudio() {
   const s = state.scratch;
-  if (s.ctx && s.out) {
+  if (s.toneOut) {
     return;
   }
-  s.ctx = Tone.getContext().rawContext;
-  s.out = s.ctx.createGain();
-  s.out.gain.value = 0.9;
-  s.out.connect(s.ctx.destination);
+  s.toneOut = new Tone.Gain(0.9);
+  s.toneOut.toDestination();
+}
+
+// Route the scratch output through the sample's own mixer channel so it uses the INSTRUMENT'S
+// sound — its amp tone, mixer volume and the master effects — instead of a bare, bypassed output.
+function routeScratchOut(id) {
+  const s = state.scratch;
+  if (!s.toneOut) { return; }
+  try { s.toneOut.disconnect(); } catch (error) { /* ignore */ }
+  const channel = state.channels[id];
+  try {
+    if (channel) { s.toneOut.connect(channel); }
+    else { s.toneOut.toDestination(); }
+  } catch (error) {
+    try { s.toneOut.toDestination(); } catch (err) { /* ignore */ }
+  }
 }
 
 function scratchLoadSample(id) {
   const s = state.scratch;
-  if (!id) { s.forward = null; return; }
+  if (!id) { s.forwardTone = null; return; }
   if (!state.sampleBuffers[id] && state.pendingSampleBuffers[id]) {
     try {
       buildSampleSampler(id, state.pendingSampleBuffers[id], { autoRename: false, select: false });
@@ -1447,51 +1460,100 @@ function scratchLoadSample(id) {
   }
   const toneBuf = state.sampleBuffers[id];
   const buffer = toneBuf && toneBuf.get ? toneBuf.get() : null;
-  if (!buffer) { s.forward = null; return; }
-  if (s.id === id && s.forward === buffer) {
-    return; // already loaded
+  if (!buffer) { s.forwardTone = null; return; }
+  if (s.id === id && s.forwardTone) {
+    routeScratchOut(id); // already loaded — just make sure it plays through the current channel
+    return;
   }
   s.id = id;
-  s.forward = buffer;
-  try { s.reverse = reverseAudioBuffer(s.ctx, buffer); } catch (error) { s.reverse = buffer; }
+  s.duration = buffer.duration;
+  s.forwardTone = new Tone.ToneAudioBuffer(buffer);
+  try {
+    const ctx = Tone.getContext().rawContext;
+    s.reverseTone = new Tone.ToneAudioBuffer(reverseAudioBuffer(ctx, buffer));
+  } catch (error) {
+    s.reverseTone = s.forwardTone;
+  }
   s.playhead = 0;
+  routeScratchOut(id);
 }
 
 // Play a short windowed grain from the current playhead, forwards or backwards, at a speed set by
-// how fast you drag — the essence of a turntable scratch.
-function scratchGrain(dx, speedAbs) {
+// how fast the record turns — the essence of a turntable scratch. Uses Tone.ToneBufferSource so it
+// flows through the sample's channel and carries the instrument's tone.
+function scratchGrain(deltaDeg, speed) {
   const s = state.scratch;
-  const ctx = s.ctx;
-  if (!ctx || !s.forward) { return; }
-  const now = ctx.currentTime;
-  if (now - s.lastGrainT < 0.018) { return; } // throttle so fast drags don't flood the graph
+  if (!s.forwardTone || !s.toneOut) { return; }
+  const now = Tone.now();
+  if (now - s.lastGrainT < 0.02) { return; } // throttle so fast turns don't flood the graph
   s.lastGrainT = now;
-  const dur = s.forward.duration;
+  const dur = s.duration;
   if (!dur) { return; }
-  const forward = dx >= 0;
-  const buffer = forward ? s.forward : (s.reverse || s.forward);
-  const speed = Math.min(3.5, Math.max(0.25, speedAbs));
-  s.playhead += dx * 0.005;
+  const forward = deltaDeg >= 0;
+  const spd = Math.min(3.5, Math.max(0.2, speed));
+  // One full revolution scrubs the whole sample, so the disc reads like a painted record.
+  s.playhead += (deltaDeg / 360) * dur;
   s.playhead = ((s.playhead % dur) + dur) % dur;
-  const grainLen = Math.min(0.18, Math.max(0.04, 0.14 / speed));
-  const consume = grainLen * speed;
+  const grainLen = Math.min(0.2, Math.max(0.04, 0.14 / spd));
+  const consume = grainLen * spd;
   let offset = forward ? s.playhead : (dur - s.playhead);
   offset = Math.min(Math.max(0, offset), Math.max(0, dur - consume - 0.001));
   try {
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.playbackRate.value = speed;
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(0, now);
-    env.gain.linearRampToValueAtTime(0.85, now + 0.006);
-    env.gain.setValueAtTime(0.85, now + Math.max(0.006, grainLen - 0.02));
-    env.gain.linearRampToValueAtTime(0, now + grainLen);
-    src.connect(env);
-    env.connect(s.out);
+    const src = new Tone.ToneBufferSource({
+      url: forward ? s.forwardTone : s.reverseTone,
+      playbackRate: spd,
+      fadeIn: 0.005,
+      fadeOut: 0.02
+    }).connect(s.toneOut);
     src.start(now, offset, consume + 0.02);
-    src.stop(now + grainLen + 0.03);
-    src.onended = () => { try { src.disconnect(); env.disconnect(); } catch (error) { /* ignore */ } };
+    src.onended = () => { try { src.dispose(); } catch (error) { /* ignore */ } };
   } catch (error) { /* ignore */ }
+}
+
+// Angle (degrees) of the pointer around the record's centre — used to rotate the vinyl to exactly
+// follow your hand, like grabbing a real turntable.
+function scratchPointerAngle(event) {
+  const s = state.scratch;
+  return Math.atan2(event.clientY - s.centerY, event.clientX - s.centerX) * 180 / Math.PI;
+}
+
+function cancelScratchSpin() {
+  const s = state.scratch;
+  if (s && s.rafId) {
+    cancelAnimationFrame(s.rafId);
+    s.rafId = null;
+  }
+}
+
+// After you let go, the record keeps spinning and smoothly coasts to a stop (momentum + friction),
+// with the sound winding down as it slows — a natural, fluid free spin.
+function startScratchSpin() {
+  const s = state.scratch;
+  cancelScratchSpin();
+  if (Math.abs(s.angVel) < 0.01) {
+    return; // released while still — no free spin
+  }
+  let last = performance.now();
+  const step = () => {
+    const now = performance.now();
+    const dt = Math.min(48, now - last);
+    last = now;
+    s.angVel *= Math.pow(0.92, dt / 16); // frame-rate-independent friction
+    const da = s.angVel * dt;
+    s.angle += da;
+    if (elements.scratchVinyl) {
+      elements.scratchVinyl.style.transform = `rotate(${s.angle}deg)`;
+    }
+    if (Math.abs(s.angVel) > 0.03) {
+      scratchGrain(da, Math.abs(s.angVel) * 0.33); // audible coast
+    }
+    if (Math.abs(s.angVel) < 0.004) {
+      s.rafId = null;
+      return;
+    }
+    s.rafId = requestAnimationFrame(step);
+  };
+  s.rafId = requestAnimationFrame(step);
 }
 
 function onScratchDown(event) {
@@ -1506,8 +1568,13 @@ function onScratchDown(event) {
     return;
   }
   scratchLoadSample(id);
+  cancelScratchSpin();
+  const rect = elements.scratchDisc.getBoundingClientRect();
+  s.centerX = rect.left + rect.width / 2;
+  s.centerY = rect.top + rect.height / 2;
   s.dragging = true;
-  s.lastX = event.clientX;
+  s.angVel = 0;
+  s.lastAngle = scratchPointerAngle(event);
   s.lastT = performance.now();
   try { elements.scratchDisc.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ }
   elements.scratchDisc.classList.add("is-scratching");
@@ -1516,18 +1583,21 @@ function onScratchDown(event) {
 function onScratchMove(event) {
   const s = state.scratch;
   if (!s || !s.dragging) { return; }
-  if (!s.forward) { scratchLoadSample(currentScratchSampleId()); } // retry once the graph/sample is ready
+  if (!s.forwardTone) { scratchLoadSample(currentScratchSampleId()); } // retry once the graph/sample is ready
   const now = performance.now();
-  const dx = event.clientX - s.lastX;
+  const ang = scratchPointerAngle(event);
+  let da = ang - s.lastAngle;
+  if (da > 180) { da -= 360; } else if (da < -180) { da += 360; } // shortest way round the circle
   const dt = Math.max(1, now - s.lastT);
-  s.lastX = event.clientX;
+  s.lastAngle = ang;
   s.lastT = now;
-  s.angle += dx * 1.1;
+  s.angle += da;
   if (elements.scratchVinyl) {
     elements.scratchVinyl.style.transform = `rotate(${s.angle}deg)`;
   }
-  if (Math.abs(dx) < 2) { return; }
-  scratchGrain(dx, Math.abs(dx / dt) * 1.4); // px/ms -> playback speed
+  s.angVel = da / dt; // deg per ms — carried into the free spin on release
+  if (Math.abs(da) < 0.5) { return; }
+  scratchGrain(da, Math.abs(da / dt) * 0.33);
 }
 
 function onScratchUp(event) {
@@ -1538,19 +1608,20 @@ function onScratchUp(event) {
     elements.scratchDisc.classList.remove("is-scratching");
     try { elements.scratchDisc.releasePointerCapture(event.pointerId); } catch (error) { /* ignore */ }
   }
+  startScratchSpin(); // smooth momentum coast
 }
 
 function setupScratcher() {
   const disc = elements.scratchDisc;
   if (!disc) { return; }
   state.scratch = {
-    id: null, forward: null, reverse: null, ctx: null, out: null,
-    angle: 0, playhead: 0, lastX: 0, lastT: 0, dragging: false, lastGrainT: 0
+    id: null, forwardTone: null, reverseTone: null, toneOut: null, duration: 0,
+    angle: 0, angVel: 0, playhead: 0, lastAngle: 0, lastT: 0, centerX: 0, centerY: 0,
+    dragging: false, lastGrainT: 0, rafId: null
   };
   disc.addEventListener("pointerdown", onScratchDown);
   disc.addEventListener("pointermove", onScratchMove);
   disc.addEventListener("pointerup", onScratchUp);
-  disc.addEventListener("pointerleave", onScratchUp);
   disc.addEventListener("pointercancel", onScratchUp);
 }
 
@@ -2712,28 +2783,35 @@ function startSampleStepSequence() {
   }
   state.sampleStepPlaying = true;
   state.sampleStepIndex = 0;
+  state.seqNextTime = Tone.now() + 0.1; // first step lands a beat ahead on the audio clock
   updateSampleStepButton();
   const count = state.seqRows.length;
   elements.statusText.textContent = `Sequencing ${count} instrument${count === 1 ? "" : "s"} \u2014 press Stop to end`;
-  const tick = () => {
+  // Look-ahead scheduler: every step is placed on the AUDIO clock, so all instruments on a step
+  // fire at the exact same instant and the groove never drifts. setTimeout only refills the queue,
+  // it does not decide the timing — that keeps the sound perfectly synchronized.
+  const LOOKAHEAD = 0.12; // seconds of audio scheduled ahead
+  const scheduler = () => {
     if (!state.sampleStepPlaying) {
       return;
     }
-    const len = state.seqLength;
-    const s = state.sampleStepIndex % len;
-    const t = Tone.now() + 0.02;
-    state.seqRows.forEach((row) => {
-      if (row.steps[s]) {
-        triggerSeqInstrument(row.id, t, row.notes, row.piece);
-      }
-    });
-    highlightSampleStep(s);
-    state.sampleStepIndex = (s + 1) % len;
     const bpm = Number(elements.tempo.value) || 120;
-    const stepMs = ((60 / bpm) / 4) * 1000; // one 16th note at the current tempo
-    state.sampleStepTimer = window.setTimeout(tick, stepMs);
+    const secondsPerStep = (60 / bpm) / 4; // one 16th note at the current tempo
+    while (state.seqNextTime < Tone.now() + LOOKAHEAD) {
+      const s = state.sampleStepIndex % state.seqLength;
+      const t = state.seqNextTime;
+      state.seqRows.forEach((row) => {
+        if (row.steps[s]) {
+          triggerSeqInstrument(row.id, t, row.notes, row.piece);
+        }
+      });
+      Tone.Draw.schedule(() => { if (state.sampleStepPlaying) { highlightSampleStep(s); } }, t);
+      state.sampleStepIndex += 1;
+      state.seqNextTime += secondsPerStep;
+    }
+    state.sampleStepTimer = window.setTimeout(scheduler, 25);
   };
-  tick();
+  scheduler();
 }
 
 function stopSampleStepSequence() {
