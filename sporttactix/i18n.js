@@ -26,6 +26,7 @@ const I18N = (() => {
       'common.export': 'Export', 'common.import': 'Import', 'common.noData': 'No data', 'common.confirmTitle': 'Please confirm',
       'common.vs': 'vs', 'common.at': '@',
       'common.fullscreen': 'Full Screen', 'common.exitFullscreen': 'Exit Full Screen',
+      'common.on': 'On', 'common.off': 'Off', 'common.close': 'Close',
       'search.placeholder': 'Search players, matches, drills, tactics...',
       'status.injured': 'Injured', 'status.available': 'Available',
       'status.active': 'Active', 'status.suspended': 'Suspended',
@@ -43,7 +44,7 @@ const I18N = (() => {
       'dash.teamForm': 'Team Form', 'dash.formTrend': 'Season performance trend across recent fixtures.',
       // Teams
       'teams.title': 'Teams & Players', 'teams.noTeam': 'No team', 'teams.addPlayer': 'Add Player',
-      'teams.number': 'No.', 'teams.name': 'Name', 'teams.position': 'Position', 'teams.height': 'Height',
+      'teams.number': 'No.', 'teams.name': 'Name', 'teams.position': 'Position', 'teams.height': 'Height', 'teams.email': 'Email',
       'teams.status': 'Status', 'teams.actions': 'Actions',
       'teams.firstName': 'First name', 'teams.lastName': 'Last name', 'teams.editPlayer': 'Edit Player', 'teams.newPlayer': 'New Player',
       'teams.delPlayer': 'Delete this player?',
@@ -79,6 +80,8 @@ const I18N = (() => {
       'tactics.recording': 'Recording — move players to capture frames', 'tactics.framesCaptured': 'frames captured',
       'tactics.recDone': 'Recording finished', 'tactics.newBoard': 'New Board',
       'tactics.selectFirst': 'Select a player first (Select tool)', 'tactics.passDone': 'Pass completed', 'tactics.savedKeeper': 'Saved by the keeper!', 'tactics.shotGoal': 'Shot on goal!',
+      'tactics.keeper': 'Keeper', 'tactics.keeperHint': 'When on, shots aimed near the goalkeeper are saved. When off, shoot freely.', 'tactics.keeperOn': 'Keeper active — shots snap to the keeper', 'tactics.keeperOff': 'Keeper inactive — shoot freely',
+      'tactics.screenshot': 'Screenshot', 'tactics.shotSaved': 'Board image saved', 'tactics.shotFailed': 'Could not save image', 'tactics.court': 'Court', 'tactics.fullCourt': 'Full court', 'tactics.halfCourt': 'Half court',
       'tactics.potted': 'Potted!', 'tactics.dartThrown': 'Dart thrown!',
       'play.formations': 'Formations', 'play.systems': 'Tactical Systems', 'play.search': 'Search plays…', 'play.default': 'Default', 'play.loaded': 'Play loaded', 'play.formationApplied': 'Formation applied',
       // Boxing
@@ -142,7 +145,22 @@ const I18N = (() => {
       'settings.focusSearch': 'Focus search', 'settings.closeDialog': 'Close dialog',
       'settings.resetConfirm': 'Erase all local data? This cannot be undone.',
       'role.Super Admin': 'Super Admin', 'role.Club Admin': 'Club Admin', 'role.Coach': 'Coach', 'role.Analyst': 'Analyst', 'role.Player': 'Player',
-      'settings.exported': 'Backup exported', 'settings.imported': 'Backup imported', 'settings.invalidBackup': 'Invalid backup file'
+      'settings.exported': 'Backup exported', 'settings.imported': 'Backup imported', 'settings.invalidBackup': 'Invalid backup file',
+      'drive.title': 'Google Drive Sync', 'drive.hint': 'Back up and sync your data to your own Google Drive. Paste an OAuth Client ID (Web app) from Google Cloud Console whose authorised JavaScript origin is this site.',
+      'drive.clientId': 'OAuth Client ID', 'drive.connect': 'Connect', 'drive.disconnect': 'Disconnect',
+      'drive.connected': 'Connected to Google Drive', 'drive.notConnected': 'Not connected', 'drive.notConfigured': 'Enter a Google Client ID first',
+      'drive.backup': 'Back up to Drive', 'drive.restore': 'Restore from Drive', 'drive.backedUp': 'Backed up to Google Drive', 'drive.restored': 'Restored from Google Drive',
+      'drive.lastBackup': 'Last Drive backup', 'drive.idSaved': 'Client ID saved', 'drive.failed': 'Google Drive error', 'drive.confirmRestore': 'Replace all local data with the Drive backup?',
+      'drive.connecting': 'Connecting\u2026', 'drive.never': 'never',
+      'sync.title': 'Team Sync & Messaging', 'sync.hint': 'Share training and messages as files or codes — no account needed.', 'sync.hintOffline': 'No account needed. Export your data as a file or code and share it with your coach or players; import what they send you.',
+      'sync.exportTraining': 'Export my training', 'sync.exportTrainingHint': 'Copy this code or download the file and send it to your coach. They import it under Team Sync.', 'sync.importFromCoach': 'Import from coach', 'sync.importTraining': 'Import training', 'sync.pasteCode': 'Paste code', 'sync.pasteHint': 'Paste a code you received, then press Import.', 'sync.import': 'Import', 'sync.badCode': 'Invalid or unreadable code', 'sync.downloadFile': 'Download file', 'sync.fileDownloaded': 'File downloaded', 'sync.trainingImported': 'Training imported', 'sync.messagesImported': 'Messages imported', 'sync.shareThread': 'Share chat', 'sync.shareThreadHint': 'Copy this code or download the file and send it to the other person so they can see your messages.', 'sync.importThread': 'Import chat',
+      'sync.needConnect': 'Connect Google Drive above to use team sync.', 'sync.teamFolder': 'Team folder', 'sync.createFolder': 'Create / connect team folder',
+      'sync.inviteCode': 'Invite code', 'sync.copyCode': 'Copy', 'sync.copied': 'Invite code copied', 'sync.folderReady': 'Team folder ready on Google Drive',
+      'sync.invite': 'Invite', 'sync.invited': 'Player invited', 'sync.needEmail': 'Add the player email first', 'sync.refreshStatus': 'Refresh training status',
+      'sync.trained': 'Trained', 'sync.noData': 'No data yet', 'sync.lastUpdate': 'Updated', 'sync.message': 'Message', 'sync.email': 'Email', 'sync.player': 'Player', 'sync.status': 'Training',
+      'sync.iam': 'I am', 'sync.selectPlayer': 'Select your name', 'sync.enterCode': 'Invite code (folder ID)', 'sync.joinTeam': 'Join team', 'sync.joined': 'Joined team',
+      'sync.sendTraining': 'Send my training', 'sync.trainingSent': 'Training sent to coach', 'sync.messageCoach': 'Message coach', 'sync.coach': 'Coach', 'sync.you': 'You',
+      'sync.typeMessage': 'Type a message\u2026', 'sync.send': 'Send', 'sync.noMessages': 'No messages yet', 'sync.sessions': 'sessions'
     },
     da: {
       'nav.dashboard': 'Oversigt',
@@ -169,6 +187,7 @@ const I18N = (() => {
       'common.export': 'Eksportér', 'common.import': 'Importér', 'common.noData': 'Ingen data', 'common.confirmTitle': 'Bekræft venligst',
       'common.vs': 'mod', 'common.at': 'ude mod',
       'common.fullscreen': 'Fuld skærm', 'common.exitFullscreen': 'Afslut fuld skærm',
+      'common.on': 'Til', 'common.off': 'Fra', 'common.close': 'Luk',
       'search.placeholder': 'Søg spillere, kampe, øvelser, taktik...',
       'status.injured': 'Skadet', 'status.available': 'Tilgængelig',
       'status.active': 'Aktiv', 'status.suspended': 'Suspenderet',
@@ -186,7 +205,7 @@ const I18N = (() => {
       'dash.teamForm': 'Holdform', 'dash.formTrend': 'Sæsonens præstationstrend over de seneste kampe.',
       // Teams
       'teams.title': 'Hold & Spillere', 'teams.noTeam': 'Intet hold', 'teams.addPlayer': 'Tilføj Spiller',
-      'teams.number': 'Nr.', 'teams.name': 'Navn', 'teams.position': 'Position', 'teams.height': 'Højde',
+      'teams.number': 'Nr.', 'teams.name': 'Navn', 'teams.position': 'Position', 'teams.height': 'Højde', 'teams.email': 'E-mail',
       'teams.status': 'Status', 'teams.actions': 'Handlinger',
       'teams.firstName': 'Fornavn', 'teams.lastName': 'Efternavn', 'teams.editPlayer': 'Rediger Spiller', 'teams.newPlayer': 'Ny Spiller',
       'teams.delPlayer': 'Slet denne spiller?',
@@ -239,6 +258,8 @@ const I18N = (() => {
       'tactics.recording': 'Optager — flyt spillere for at fange frames', 'tactics.framesCaptured': 'frames fanget',
       'tactics.recDone': 'Optagelse færdig', 'tactics.newBoard': 'Ny Tavle',
       'tactics.selectFirst': 'Vælg en spiller først (Vælg-værktøj)', 'tactics.passDone': 'Aflevering fuldført', 'tactics.savedKeeper': 'Reddet af målmanden!', 'tactics.shotGoal': 'Skud på mål!',
+      'tactics.keeper': 'Målmand', 'tactics.keeperHint': 'Når slået til reddes skud tæt på målmanden. Når fra, skyd frit.', 'tactics.keeperOn': 'Målmand aktiv — skud trækkes mod målmanden', 'tactics.keeperOff': 'Målmand inaktiv — skyd frit',
+      'tactics.screenshot': 'Skærmbillede', 'tactics.shotSaved': 'Tavlebillede gemt', 'tactics.shotFailed': 'Kunne ikke gemme billede', 'tactics.court': 'Bane', 'tactics.fullCourt': 'Hel bane', 'tactics.halfCourt': 'Halv bane',
       'tactics.potted': 'Sænket!', 'tactics.dartThrown': 'Pil kastet!',
       'play.formations': 'Formationer', 'play.systems': 'Taktiske systemer', 'play.search': 'Søg spil…', 'play.default': 'Standard', 'play.loaded': 'Spil indlæst', 'play.formationApplied': 'Formation anvendt',
       // Boxing
@@ -317,7 +338,22 @@ const I18N = (() => {
       'settings.focusSearch': 'Fokus på søgning', 'settings.closeDialog': 'Luk dialog',
       'settings.resetConfirm': 'Slet alle lokale data? Dette kan ikke fortrydes.',
       'role.Super Admin': 'Superadministrator', 'role.Club Admin': 'Klubadministrator', 'role.Coach': 'Træner', 'role.Analyst': 'Analytiker', 'role.Player': 'Spiller',
-      'settings.exported': 'Backup eksporteret', 'settings.imported': 'Backup importeret', 'settings.invalidBackup': 'Ugyldig backup-fil'
+      'settings.exported': 'Backup eksporteret', 'settings.imported': 'Backup importeret', 'settings.invalidBackup': 'Ugyldig backup-fil',
+      'drive.title': 'Google Drive Synk', 'drive.hint': 'Sikkerhedskopiér og synkronisér dine data til din egen Google Drive. Indsæt et OAuth Klient-ID (Web-app) fra Google Cloud Console med dette websted som tilladt JavaScript-kilde.',
+      'drive.clientId': 'OAuth Klient-ID', 'drive.connect': 'Forbind', 'drive.disconnect': 'Afbryd',
+      'drive.connected': 'Forbundet til Google Drive', 'drive.notConnected': 'Ikke forbundet', 'drive.notConfigured': 'Indtast et Google Klient-ID først',
+      'drive.backup': 'Backup til Drive', 'drive.restore': 'Gendan fra Drive', 'drive.backedUp': 'Sikkerhedskopieret til Google Drive', 'drive.restored': 'Gendannet fra Google Drive',
+      'drive.lastBackup': 'Seneste Drive-backup', 'drive.idSaved': 'Klient-ID gemt', 'drive.failed': 'Google Drive-fejl', 'drive.confirmRestore': 'Erstat alle lokale data med Drive-backup?',
+      'drive.connecting': 'Forbinder\u2026', 'drive.never': 'aldrig',
+      'sync.title': 'Holdsynk & Beskeder', 'sync.hint': 'Del træning og beskeder som filer eller koder — ingen konto nødvendig.', 'sync.hintOffline': 'Ingen konto nødvendig. Eksportér dine data som en fil eller kode og del den med din træner eller dine spillere; importér det, de sender til dig.',
+      'sync.exportTraining': 'Eksportér min træning', 'sync.exportTrainingHint': 'Kopiér denne kode eller download filen og send den til din træner. De importerer den under Holdsynk.', 'sync.importFromCoach': 'Importér fra træner', 'sync.importTraining': 'Importér træning', 'sync.pasteCode': 'Indsæt kode', 'sync.pasteHint': 'Indsæt en kode, du har modtaget, og tryk Importér.', 'sync.import': 'Importér', 'sync.badCode': 'Ugyldig eller ulæselig kode', 'sync.downloadFile': 'Download fil', 'sync.fileDownloaded': 'Fil downloadet', 'sync.trainingImported': 'Træning importeret', 'sync.messagesImported': 'Beskeder importeret', 'sync.shareThread': 'Del chat', 'sync.shareThreadHint': 'Kopiér denne kode eller download filen og send den til den anden person, så de kan se dine beskeder.', 'sync.importThread': 'Importér chat',
+      'sync.needConnect': 'Forbind Google Drive ovenfor for at bruge holdsynk.', 'sync.teamFolder': 'Holdmappe', 'sync.createFolder': 'Opret / forbind holdmappe',
+      'sync.inviteCode': 'Invitationskode', 'sync.copyCode': 'Kopiér', 'sync.copied': 'Invitationskode kopieret', 'sync.folderReady': 'Holdmappe klar på Google Drive',
+      'sync.invite': 'Invitér', 'sync.invited': 'Spiller inviteret', 'sync.needEmail': 'Tilføj spillerens e-mail først', 'sync.refreshStatus': 'Opdatér træningsstatus',
+      'sync.trained': 'Trænet', 'sync.noData': 'Ingen data endnu', 'sync.lastUpdate': 'Opdateret', 'sync.message': 'Besked', 'sync.email': 'E-mail', 'sync.player': 'Spiller', 'sync.status': 'Træning',
+      'sync.iam': 'Jeg er', 'sync.selectPlayer': 'Vælg dit navn', 'sync.enterCode': 'Invitationskode (mappe-ID)', 'sync.joinTeam': 'Tilslut hold', 'sync.joined': 'Tilsluttet hold',
+      'sync.sendTraining': 'Send min træning', 'sync.trainingSent': 'Træning sendt til træner', 'sync.messageCoach': 'Skriv til træner', 'sync.coach': 'Træner', 'sync.you': 'Dig',
+      'sync.typeMessage': 'Skriv en besked\u2026', 'sync.send': 'Send', 'sync.noMessages': 'Ingen beskeder endnu', 'sync.sessions': 'sessioner'
     }
   };
   let lang = 'en';

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SportTactix — Help &amp; Tutorials</title>
   <style>
-    :root{--bg:#0a0e1a;--surface:#121a2e;--surface2:#0e1526;--border:#24304d;--text:#eef2ff;--soft:#b8c2dc;--muted:#6b7a9e;--primary:#ff6a00;--accent:#22e07a;--danger:#ff3b5c;--radius:14px}
+    :root{--bg:#0a0e1a;--surface:#121a2e;--surface2:#0e1526;--border:#24304d;--text:#eef2ff;--soft:#b8c2dc;--muted:#6b7a9e;--primary:#ff6a00;--accent:#22e07a;--danger:#ff3b5c;--radius:14px;--steel:"Arial Black","Arial Bold","Helvetica Neue",Arial,Gadget,sans-serif}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:
       radial-gradient(1200px 500px at 100% -10%,rgba(255,106,0,.10),transparent 60%),
@@ -13,7 +13,15 @@
       color:var(--text);line-height:1.6}
     header{padding:34px 24px;text-align:center;border-bottom:1px solid var(--border)}
     header .logo{color:var(--primary);filter:drop-shadow(0 0 8px rgba(255,106,0,.6))}
-    header h1{text-transform:uppercase;letter-spacing:1px;margin-top:6px;font-size:28px}
+    header h1{font-family:var(--steel);text-transform:uppercase;letter-spacing:1px;margin-top:0;font-size:26px;font-weight:900;color:#c2ccd6;background:linear-gradient(180deg,#eef2f7,#b4beca 38%,#5c6672 52%,#9aa4b0 68%,#d7dde5);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+    .title-row{display:inline-flex;align-items:center;gap:9px;margin-top:6px}
+    .runner{color:var(--primary);flex:none;animation:runnerBob .32s ease-in-out infinite}
+    .runner .run-a{animation:runnerFrameA .32s steps(1,end) infinite}
+    .runner .run-b{animation:runnerFrameB .32s steps(1,end) infinite}
+    @keyframes runnerFrameA{0%,49.9%{opacity:1}50%,100%{opacity:0}}
+    @keyframes runnerFrameB{0%,49.9%{opacity:0}50%,100%{opacity:1}}
+    @keyframes runnerBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+    @media (prefers-reduced-motion:reduce){.runner,.runner .run-a,.runner .run-b{animation:none}.runner .run-b{opacity:0}}
     header p{color:var(--muted)}
     .wrap{max-width:960px;margin:0 auto;padding:24px}
     .lang{position:fixed;top:16px;right:16px;display:flex;gap:6px}
@@ -78,20 +86,25 @@
   <header>
     <div class="logo">
       <svg viewBox="0 0 48 48" width="64" height="64" aria-hidden="true">
-        <defs>
-          <linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb020"/><stop offset=".5" stop-color="#ff4d6d"/><stop offset="1" stop-color="#7a2bff"/></linearGradient>
-          <radialGradient id="hlGloss" cx="32%" cy="24%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="55%" stop-color="#fff" stop-opacity="0"/></radialGradient>
-          <linearGradient id="hlTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ffe3b0"/></linearGradient>
-          <linearGradient id="hlBot" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ead6ff"/></linearGradient>
-        </defs>
-        <rect x="3" y="3" width="42" height="42" rx="13" fill="url(#hlg)"/>
-        <rect x="3" y="3" width="42" height="42" rx="13" fill="url(#hlGloss)"/>
-        <rect x="3.75" y="3.75" width="40.5" height="40.5" rx="12.2" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="1.3"/>
-        <path d="M33 15H21a5 5 0 0 0 0 10h2.5" fill="none" stroke="url(#hlTop)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -0.7)"/>
-        <path d="M26.5 25h.5a5 5 0 0 1 0 10H15" fill="none" stroke="url(#hlBot)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 0.7)"/>
+        <rect x="3" y="3" width="42" height="42" rx="12" fill="currentColor"/>
+        <rect x="3.75" y="3.75" width="40.5" height="40.5" rx="11.3" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.3"/>
+        <path d="M33 15H21a5 5 0 0 0 0 10h2.5" fill="none" stroke="#fff" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -0.7)"/>
+        <path d="M26.5 25h.5a5 5 0 0 1 0 10H15" fill="none" stroke="#fff" stroke-opacity=".92" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 0.7)"/>
       </svg>
     </div>
-    <h1>SportTactix</h1>
+    <div class="title-row">
+      <h1>SportTactix</h1>
+      <svg class="runner" viewBox="0 0 28 30" width="26" height="28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <g class="run-a">
+          <circle cx="15" cy="6" r="3" fill="currentColor" stroke="none"/>
+          <path d="M15 9L13 18"/><path d="M14 11L20 10"/><path d="M14 11L8 14"/><path d="M13 18L20 26"/><path d="M13 18L7 27"/>
+        </g>
+        <g class="run-b">
+          <circle cx="15" cy="6" r="3" fill="currentColor" stroke="none"/>
+          <path d="M15 9L13 18"/><path d="M14 11L19 15"/><path d="M14 11L9 9"/><path d="M13 18L17 27"/><path d="M13 18L12 28"/>
+        </g>
+      </svg>
+    </div>
     <p data-lang-en>Help &amp; Tutorials — how to use the app</p>
     <p data-lang-da>Hjælp &amp; Vejledninger — sådan bruger du appen</p>
     <p style="margin-top:10px"><a class="back" href="index.html"><svg class="sym"><use href="#i-left"/></svg> <span data-lang-en>Back to app</span><span data-lang-da>Tilbage til appen</span></a></p>
@@ -103,6 +116,7 @@
       <a href="#sport"><span data-lang-en>Choose Your Sport</span><span data-lang-da>Vælg Sportsgren</span></a>
       <a href="#bots"><span data-lang-en>Game Bots</span><span data-lang-da>Spil-bots</span></a>
       <a href="#board"><span data-lang-en>Tactical Board</span><span data-lang-da>Taktiktavle</span></a>
+      <a href="#gestures"><span data-lang-en>Gestures &amp; Autosave</span><span data-lang-da>Bevægelser &amp; Autogem</span></a>
       <a href="#shoot"><span data-lang-en>Shooting &amp; Magnet</span><span data-lang-da>Skud &amp; Magnet</span></a>
       <a href="#physics"><span data-lang-en>Physics &amp; Cue Sports</span><span data-lang-da>Fysik &amp; Køllesport</span></a>
       <a href="#record"><span data-lang-en>Record Video</span><span data-lang-da>Optag Video</span></a>
@@ -223,6 +237,29 @@
           <div class="callout" data-lang-da><svg class="sym"><use href="#i-whistle"/></svg> En dommerfløjte lyder hver gang du trykker <svg class="sym solid"><use href="#i-play"/></svg> Afspil — den nulstilles og afspilles igen ved hvert tryk (overlapper aldrig).</div>
         </div>
       </div>
+    </section>
+
+    <!-- Board gestures, autosave, screenshot & court size -->
+    <section class="card" id="gestures">
+      <h2><span class="num"><svg class="sym"><use href="#i-hand"/></svg></span> <span data-lang-en>Board Gestures, Autosave &amp; Screenshot</span><span data-lang-da>Tavle-bevægelser, Autogem &amp; Skærmbillede</span></h2>
+      <p data-lang-en>With the <b>Select</b> tool the board reacts to how you touch it — a quick tap, a hold, or a drag each do something different. Everything you change is saved automatically.</p>
+      <p data-lang-da>Med <b>Vælg</b>-værktøjet reagerer tavlen på hvordan du rører den — et hurtigt tryk, et hold eller et træk gør hver sin ting. Alt du ændrer, gemmes automatisk.</p>
+      <ul>
+        <li data-lang-en><b>Tap</b> a player to select it. If a team-mate is already selected, tapping another player <b>passes the ball</b> to them.</li>
+        <li data-lang-da><b>Tryk</b> på en spiller for at vælge den. Hvis en medspiller allerede er valgt, <b>afleverer</b> et tryk på en anden spiller bolden til denne.</li>
+        <li data-lang-en><b>Hold</b> (press and keep still) on a player to <b>pick it up</b> — it selects with a yellow glow, ready to move.</li>
+        <li data-lang-da><b>Hold</b> (tryk og hold stille) på en spiller for at <b>samle den op</b> — den vælges med en gul glød, klar til at flytte.</li>
+        <li data-lang-en><b>Drag</b> a player or the ball to <b>move</b> it across the court; release to drop.</li>
+        <li data-lang-da><b>Træk</b> en spiller eller bolden for at <b>flytte</b> den over banen; slip for at placere.</li>
+      </ul>
+      <div class="callout" data-lang-en><svg class="sym"><use href="#i-target"/></svg> <b>Autosave:</b> every move, pass, drawing and frame is saved to your device automatically — no Save button needed. Your board is exactly as you left it next time.</div>
+      <div class="callout" data-lang-da><svg class="sym"><use href="#i-target"/></svg> <b>Autogem:</b> hvert træk, aflevering, tegning og frame gemmes automatisk på din enhed — ingen Gem-knap nødvendig. Din tavle er præcis som du forlod den næste gang.</div>
+      <ul>
+        <li data-lang-en><b>📷 Screenshot</b> — press the screenshot button in the top bar to download the <b>board</b> as a PNG image (just the court, ready to share or print).</li>
+        <li data-lang-da><b>📷 Skærmbillede</b> — tryk på skærmbillede-knappen i topbjælken for at downloade <b>tavlen</b> som et PNG-billede (kun banen, klar til deling eller print).</li>
+        <li data-lang-en><b>Full / Half court</b> — for team sports, use the <b>Court</b> selector to switch between the full pitch and a zoomed <b>half court</b> for attack/defence set-pieces.</li>
+        <li data-lang-da><b>Hel / Halv bane</b> — for holdsport, brug <b>Bane</b>-vælgeren til at skifte mellem den fulde bane og en zoomet <b>halv bane</b> til angreb/forsvar-oplæg.</li>
+      </ul>
     </section>
 
     <!-- 4. Shooting & magnet -->
@@ -367,17 +404,25 @@
 
     <!-- 11. Share -->
     <section class="card" id="share">
-      <h2><span class="num">11</span> <span data-lang-en>Share Data with Another Coach</span><span data-lang-da>Del Data med en anden Træner</span></h2>
-      <ol>
-        <li data-lang-en>Go to <span class="tag">Settings <svg class="sym"><use href="#i-right"/></svg> Send to Coach <svg class="sym"><use href="#i-mail"/></svg></span>.</li>
-        <li data-lang-da>Gå til <span class="tag">Indstillinger <svg class="sym"><use href="#i-right"/></svg> Send til Træner <svg class="sym"><use href="#i-mail"/></svg></span>.</li>
-        <li data-lang-en>A <b>JSON</b> file with all your data downloads, and your email app opens with a pre-filled message.</li>
-        <li data-lang-da>En <b>JSON</b>-fil med alle dine data downloades, og din e-mail-app åbnes med en færdig besked.</li>
-        <li data-lang-en>Attach the downloaded file and send.</li>
-        <li data-lang-da>Vedhæft den downloadede fil og send.</li>
-        <li data-lang-en>The receiving coach uses <span class="tag">Settings <svg class="sym"><use href="#i-right"/></svg> Import Backup</span> to load it.</li>
-        <li data-lang-da>Den modtagende træner bruger <span class="tag">Indstillinger <svg class="sym"><use href="#i-right"/></svg> Import Backup</span> for at indlæse den.</li>
-      </ol>
+      <h2><span class="num">11</span> <span data-lang-en>Share Data &amp; Team Sync (no account)</span><span data-lang-da>Del Data &amp; Holdsynk (ingen konto)</span></h2>
+      <p data-lang-en>SportTactix needs <b>no Google account and no login</b>. You share everything as small <b>files</b> or copy-paste <b>codes</b>, so it works fully offline.</p>
+      <p data-lang-da>SportTactix kræver <b>ingen Google-konto og intet login</b>. Du deler alt som små <b>filer</b> eller kopier-indsæt-<b>koder</b>, så det virker helt offline.</p>
+      <ul>
+        <li data-lang-en><b>Full backup:</b> <span class="tag">Settings <svg class="sym"><use href="#i-right"/></svg> Export Backup</span> downloads a JSON of everything; another device loads it with <span class="tag">Import Backup</span>.</li>
+        <li data-lang-da><b>Fuld backup:</b> <span class="tag">Indstillinger <svg class="sym"><use href="#i-right"/></svg> Export Backup</span> downloader en JSON med alt; en anden enhed indlæser den med <span class="tag">Import Backup</span>.</li>
+        <li data-lang-en><b>Send to coach:</b> <span class="tag">Send to Coach <svg class="sym"><use href="#i-mail"/></svg></span> downloads a share file and opens your email app with a ready message — just attach the file.</li>
+        <li data-lang-da><b>Send til træner:</b> <span class="tag">Send til Træner <svg class="sym"><use href="#i-mail"/></svg></span> downloader en delefil og åbner din e-mail med en færdig besked — vedhæft blot filen.</li>
+      </ul>
+      <div class="callout" data-lang-en><svg class="sym"><use href="#i-target"/></svg> <b>Team Sync</b> (team sports) lets a coach and players exchange training and messages without any server or account.</div>
+      <div class="callout" data-lang-da><svg class="sym"><use href="#i-target"/></svg> <b>Holdsynk</b> (holdsport) lader træner og spillere udveksle træning og beskeder uden nogen server eller konto.</div>
+      <ul>
+        <li data-lang-en><b>Player:</b> pick <b>I am …</b>, then <b>Export my training</b> to get a code or file. Send it to the coach any way you like (email, chat, AirDrop).</li>
+        <li data-lang-da><b>Spiller:</b> vælg <b>Jeg er …</b>, og tryk <b>Eksportér min træning</b> for at få en kode eller fil. Send den til træneren, som du vil (e-mail, chat, AirDrop).</li>
+        <li data-lang-en><b>Coach:</b> use <b>Import training</b> (file) or <b>Paste code</b>; each player's status fills in. Tap <b>Message</b> on a player to write, then <b>Share chat</b> as a code/file — they import it to reply.</li>
+        <li data-lang-da><b>Træner:</b> brug <b>Importér træning</b> (fil) eller <b>Indsæt kode</b>; hver spillers status udfyldes. Tryk <b>Besked</b> på en spiller for at skrive, og <b>Del chat</b> som kode/fil — de importerer den for at svare.</li>
+        <li data-lang-en><b>Reply:</b> the player uses <b>Import from coach</b> to load the coach's messages, and <b>Message coach</b> to write back.</li>
+        <li data-lang-da><b>Svar:</b> spilleren bruger <b>Importér fra træner</b> for at indlæse trænerens beskeder, og <b>Skriv til træner</b> for at svare.</li>
+      </ul>
     </section>
 
     <!-- 12. Shortcuts -->

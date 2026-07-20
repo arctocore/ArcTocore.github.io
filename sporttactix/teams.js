@@ -54,7 +54,8 @@ Views.teams = function (mount) {
         <div class="row"><label class="field"><span>${T('teams.number')}</span><input id="f_num" type="number" value="${p.number || ''}"></label>
         <label class="field"><span>${T('teams.position')}</span><select id="f_pos">${positions.map(x => `<option value="${x}" ${x === p.position ? 'selected' : ''}>${UI.esc(tt('pos', x))}</option>`).join('')}</select></label></div>
         <div class="row"><label class="field"><span>${T('teams.height')} (cm)</span><input id="f_h" type="number" value="${p.height || ''}"></label>
-        <label class="field"><span>${T('teams.status')}</span><select id="f_st"><option value="active" ${p.status === 'active' ? 'selected' : ''}>${UI.esc(tt('status', 'active'))}</option><option value="injured" ${p.status === 'injured' ? 'selected' : ''}>${UI.esc(tt('status', 'injured'))}</option><option value="suspended" ${p.status === 'suspended' ? 'selected' : ''}>${UI.esc(tt('status', 'suspended'))}</option></select></label></div>`,
+        <label class="field"><span>${T('teams.status')}</span><select id="f_st"><option value="active" ${p.status === 'active' ? 'selected' : ''}>${UI.esc(tt('status', 'active'))}</option><option value="injured" ${p.status === 'injured' ? 'selected' : ''}>${UI.esc(tt('status', 'injured'))}</option><option value="suspended" ${p.status === 'suspended' ? 'selected' : ''}>${UI.esc(tt('status', 'suspended'))}</option></select></label></div>
+        <label class="field"><span>${T('teams.email')}</span><input id="f_email" type="email" value="${UI.esc(p.email || '')}" placeholder="player@example.com"></label>`,
       footer: `<button class="btn ghost" data-close2>${T('common.cancel')}</button><button class="btn primary" data-save>${T('common.save')}</button>`,
       onOpen: (m, close) => {
         m.querySelector('[data-close2]').onclick = close;
@@ -66,7 +67,8 @@ Views.teams = function (mount) {
             number: +m.querySelector('#f_num').value,
             position: m.querySelector('#f_pos').value,
             height: +m.querySelector('#f_h').value,
-            status: m.querySelector('#f_st').value
+            status: m.querySelector('#f_st').value,
+            email: m.querySelector('#f_email').value.trim()
           });
           if (!obj.firstName) return UI.toast(T('teams.reqName'), 'error');
           await Store.save('players', obj);

@@ -151,20 +151,65 @@ const SPORTS = (() => {
       for (const [x, y] of [[W / 2, H - 40], [W - 60, H / 2], [W / 2, 60], [60, H / 2]]) { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillRect(-7, -7, 14, 14); ctx.restore(); }
     },
     rugby(ctx, W, H) {
-      bg(ctx, W, H, '#0d5c2b', '#159a45'); frame(ctx, W, H); midline(ctx, W, H);
-      ctx.strokeStyle = 'rgba(255,255,255,.7)';
-      for (const y of [40, H - 40]) { ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(W - 8, y); ctx.stroke(); }
-      ctx.setLineDash([6, 6]);
-      for (const y of [H / 2 - 60, H / 2 + 60]) { ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(W - 8, y); ctx.stroke(); }
+      bg(ctx, W, H, '#0d5c2b', '#159a45'); grassStripes(ctx, W, H, '#0f6a31', '#14893f', 10);
+      frame(ctx, W, H); midline(ctx, W, H);
+      // in-goal shading behind each try line
+      ctx.fillStyle = 'rgba(255,255,255,.08)';
+      ctx.fillRect(8, 8, W - 16, 32); ctx.fillRect(8, H - 40, W - 16, 32);
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+      for (const y of [40, H - 40]) { ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(W - 8, y); ctx.stroke(); }   // try lines
+      ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.5;
+      for (const y of [H / 2 - 60, H / 2 + 60]) { ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(W - 8, y); ctx.stroke(); }  // 22m lines
       ctx.setLineDash([]);
-      ctx.fillStyle = '#ffd400'; ctx.fillRect(W / 2 - 4, 8, 8, 20); ctx.fillRect(W / 2 - 4, H - 28, 8, 20);
+      // H-shaped goalposts straddling each try line
+      ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      const post = (y, dir) => {
+        const cx = W / 2, w = 34, bar = y + dir * 16;
+        ctx.beginPath();
+        ctx.moveTo(cx - w / 2, y - dir * 8); ctx.lineTo(cx - w / 2, bar + dir * 22);
+        ctx.moveTo(cx + w / 2, y - dir * 8); ctx.lineTo(cx + w / 2, bar + dir * 22);
+        ctx.moveTo(cx - w / 2, bar); ctx.lineTo(cx + w / 2, bar);
+        ctx.stroke();
+      };
+      post(40, -1); post(H - 40, 1);
+      ctx.lineCap = 'butt';
     },
     football(ctx, W, H) { // American football
-      bg(ctx, W, H, '#0d5c2b', '#127a37'); frame(ctx, W, H);
-      ctx.strokeStyle = 'rgba(255,255,255,.6)';
-      for (let i = 1; i < 10; i++) { const y = 8 + (H - 16) * i / 10; ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(W - 8, y); ctx.stroke(); }
-      ctx.fillStyle = 'rgba(255,106,0,.25)';
-      ctx.fillRect(8, 8, W - 16, 40); ctx.fillRect(8, H - 48, W - 16, 40);
+      bg(ctx, W, H, '#0d5c2b', '#127a37');
+      // subtle turf stripes down the field
+      for (let i = 0; i < 10; i++) { ctx.fillStyle = i % 2 ? 'rgba(255,255,255,.045)' : 'rgba(0,0,0,.05)'; ctx.fillRect(8 + (W - 16) * i / 10, 8, (W - 16) / 10 + 1, H - 16); }
+      frame(ctx, W, H);
+      // end zones
+      ctx.fillStyle = 'rgba(255,106,0,.30)';
+      ctx.fillRect(8, 8, W - 16, 46); ctx.fillRect(8, H - 54, W - 16, 46);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+      ctx.strokeRect(8, 54, W - 16, H - 108);            // goal lines
+      // yard lines + hash marks every 10 yards
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1;
+      for (let i = 1; i < 10; i++) {
+        const y = 54 + (H - 108) * i / 10;
+        ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(W - 8, y); ctx.stroke();
+        ctx.beginPath();
+        for (const hx of [W * 0.35, W * 0.65]) { ctx.moveTo(hx - 4, y); ctx.lineTo(hx + 4, y); }
+        ctx.stroke();
+      }
+      // yard numbers down both sidelines
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const nums = [10, 20, 30, 40, 50, 40, 30, 20, 10];
+      for (let i = 1; i < 10; i++) { const y = 54 + (H - 108) * i / 10; ctx.fillText(nums[i - 1], 30, y); ctx.fillText(nums[i - 1], W - 30, y); }
+      // goalposts (field goals) at each end
+      ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      const post = (yBack, dir) => {
+        const cx = W / 2, cross = yBack + dir * 18, span = 48;
+        ctx.beginPath();
+        ctx.moveTo(cx, yBack); ctx.lineTo(cx, cross);
+        ctx.moveTo(cx - span / 2, cross); ctx.lineTo(cx + span / 2, cross);
+        ctx.moveTo(cx - span / 2, cross); ctx.lineTo(cx - span / 2, cross + dir * 26);
+        ctx.moveTo(cx + span / 2, cross); ctx.lineTo(cx + span / 2, cross + dir * 26);
+        ctx.stroke();
+      };
+      post(12, 1); post(H - 12, -1);
+      ctx.lineCap = 'butt';
     },
     badminton(ctx, W, H) {
       bg(ctx, W, H, '#0a5c66', '#0c7580'); frame(ctx, W, H);
@@ -250,12 +295,19 @@ const SPORTS = (() => {
         ctx.beginPath(); ctx.arc(x, y, 30, 0, 7); ctx.stroke();
         ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill();
       }
-      // goal creases + goals
+      // goal creases + goals (bigger nets)
       for (const yb of [m + 34, H - m - 34]) {
         const dir = yb < H / 2 ? 1 : -1;
-        ctx.fillStyle = 'rgba(29,78,216,.28)';
-        ctx.beginPath(); ctx.arc(W / 2, yb, 26, dir === 1 ? 0 : Math.PI, dir === 1 ? Math.PI : 2 * Math.PI); ctx.fill();
-        ctx.fillStyle = '#e11d48'; ctx.fillRect(W / 2 - 22, dir === 1 ? yb - 6 : yb, 44, 6);
+        ctx.fillStyle = 'rgba(29,78,216,.30)';
+        ctx.beginPath(); ctx.arc(W / 2, yb, 34, dir === 1 ? 0 : Math.PI, dir === 1 ? Math.PI : 2 * Math.PI); ctx.fill();
+        ctx.strokeStyle = '#1d4ed8'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(W / 2, yb, 34, dir === 1 ? 0 : Math.PI, dir === 1 ? Math.PI : 2 * Math.PI); ctx.stroke();
+        const gw = 64, gd = 22, gx = W / 2 - gw / 2, gy = dir === 1 ? yb - gd : yb;
+        ctx.fillStyle = 'rgba(225,29,72,.20)'; ctx.fillRect(gx, gy, gw, gd);
+        ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 3; ctx.strokeRect(gx, gy, gw, gd);
+        ctx.strokeStyle = 'rgba(225,29,72,.45)'; ctx.lineWidth = 1;
+        for (let x = gx + 8; x < gx + gw; x += 8) { ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x, gy + gd); ctx.stroke(); }
+        for (let yy = gy + 7; yy < gy + gd; yy += 7) { ctx.beginPath(); ctx.moveTo(gx, yy); ctx.lineTo(gx + gw, yy); ctx.stroke(); }
       }
     },
     floorball(ctx, W, H) {
@@ -527,6 +579,30 @@ const SPORTS = (() => {
     }
   };
 
+  // A generic half-court set (offensive half only) for team sports: the goal or
+  // basket sits at the top, defenders near the mid line, attackers spread below.
+  function halfFormation(id) {
+    const full = formations[id] ? formations[id]() : [];
+    const hasGk = full.some(o => o.kind === 'gk');
+    const hasBall = full.some(o => o.kind === 'ball');
+    const atk = full.filter(o => o.kind === 'player' && o.team === 'atk');
+    const def = full.filter(o => o.kind === 'player' && o.team === 'def');
+    const spread = (n, x0, x1) => {
+      const out = []; if (n <= 0) return out;
+      if (n === 1) { out.push((x0 + x1) / 2); return out; }
+      for (let i = 0; i < n; i++) out.push(x0 + (x1 - x0) * i / (n - 1));
+      return out;
+    };
+    const o = [];
+    if (hasGk) o.push({ id: 'gk', kind: 'gk', team: 'def', label: 'GK', x: 50, y: 5, active: false });
+    const dxs = spread(def.length, 26, 74);
+    def.forEach((d, i) => o.push({ id: d.id, kind: 'player', team: 'def', label: d.label, x: dxs[i], y: 15 + (i % 2 ? 7 : 0) }));
+    const axs = spread(atk.length, 16, 84);
+    atk.forEach((a, i) => o.push({ id: a.id, kind: 'player', team: 'atk', label: a.label, x: axs[i], y: 30 + (i % 3) * 6 }));
+    if (hasBall) o.push({ id: 'ball', kind: 'ball', x: (axs[0] != null ? axs[0] : 50), y: 44 });
+    return o;
+  }
+
   const icon = p => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 
   const LIST = [
@@ -624,6 +700,10 @@ const SPORTS = (() => {
   };
   function oppFormations(id) { return OPP_FORMATIONS[id] || OPP_FORMATIONS.handball; }
 
-  return { LIST, get, name, positions, exerciseCategories, oppFormations };
+  // Team sports have a coach-managed squad (roster) — used to gate team sync features.
+  const TEAM_SPORTS = ['handball', 'soccer', 'basketball', 'volleyball', 'baseball', 'rugby', 'football', 'icehockey', 'floorball'];
+  function isTeam(id) { return TEAM_SPORTS.indexOf(id) >= 0; }
+
+  return { LIST, get, name, positions, exerciseCategories, oppFormations, isTeam, halfFormation };
 })();
 if (typeof window !== 'undefined') window.SPORTS = SPORTS;

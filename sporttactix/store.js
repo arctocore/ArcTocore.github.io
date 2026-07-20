@@ -85,23 +85,7 @@ const Store = (() => {
     await DB.bulkPut('seasons', [season]);
     await DB.bulkPut('teams', [team]);
 
-    const positions = ['Goalkeeper', 'Left Wing', 'Left Back', 'Center Back', 'Right Back', 'Right Wing', 'Pivot'];
-    const names = [
-      ['Jonas', 'Keller', 'Goalkeeper', 1], ['Milan', 'Horvat', 'Goalkeeper', 12],
-      ['Erik', 'Sandberg', 'Left Wing', 7], ['Tomas', 'Novak', 'Left Back', 4],
-      ['Andre', 'Costa', 'Center Back', 10], ['Petar', 'Ilic', 'Right Back', 9],
-      ['Leon', 'Fischer', 'Right Wing', 22], ['Marko', 'Babic', 'Pivot', 44],
-      ['Nils', 'Berg', 'Left Back', 6], ['Sven', 'Ott', 'Pivot', 15],
-      ['David', 'Krause', 'Right Back', 8], ['Ivan', 'Peric', 'Center Back', 11]
-    ];
-    const players = names.map(([f, l, pos, num]) => ({
-      id: uid('ply'), teamId: team.id, firstName: f, lastName: l,
-      position: pos, number: num, height: 180 + Math.floor(Math.random() * 25),
-      dob: '199' + Math.floor(Math.random() * 9) + '-0' + (1 + Math.floor(Math.random() * 8)) + '-15',
-      status: 'active'
-    }));
-    await DB.bulkPut('players', players);
-
+    // Demo players removed — the roster starts empty so coaches add their own squad.
     const coaches = [
       { id: uid('coa'), teamId: team.id, name: 'Heinrich Vogel', role: 'Head Coach' },
       { id: uid('coa'), teamId: team.id, name: 'Lukas Bauer', role: 'Assistant Coach' },
@@ -135,27 +119,31 @@ const Store = (() => {
     await DB.bulkPut('training', training);
 
     await loadAll();
+  }
 
-    // seed some events for the finished match
-    const finished = matches[0];
-    const evs = [];
-    for (let i = 0; i < 40; i++) {
-      const p = players[2 + Math.floor(Math.random() * (players.length - 2))];
-      const r = Math.random();
-      const cat = r < 0.6 ? 'attack' : r < 0.8 ? 'turnover' : 'defense';
-      let type, result;
-      if (cat === 'attack') { type = GOAL_TYPES[Math.floor(Math.random() * GOAL_TYPES.length)]; result = Math.random() < 0.55 ? 'goal' : (Math.random() < 0.5 ? 'save' : 'miss'); }
-      else if (cat === 'turnover') { type = ['Bad pass', 'Stepping', 'Technical fault'][Math.floor(Math.random() * 3)]; result = 'turnover'; }
-      else { type = 'Block'; result = 'block'; }
-      evs.push({ id: uid('evt'), matchId: finished.id, playerId: p.id, category: cat, type, result, minute: Math.floor(Math.random() * 60), createdAt: Date.now() });
+  // One-time cleanup: remove the old built-in demo players (and their events)
+  // from installs that were seeded before demo players were dropped.
+  async function purgeDemoPlayers() {
+    if (await getSetting('demoPurged', false)) return;
+    const demo = [
+      ['Jonas', 'Keller', 1], ['Milan', 'Horvat', 12], ['Erik', 'Sandberg', 7], ['Tomas', 'Novak', 4],
+      ['Andre', 'Costa', 10], ['Petar', 'Ilic', 9], ['Leon', 'Fischer', 22], ['Marko', 'Babic', 44],
+      ['Nils', 'Berg', 6], ['Sven', 'Ott', 15], ['David', 'Krause', 8], ['Ivan', 'Peric', 11]
+    ];
+    const isDemo = p => demo.some(d => d[0] === p.firstName && d[1] === p.lastName && +d[2] === +p.number);
+    const victims = all('players').filter(isDemo);
+    if (victims.length) {
+      const ids = victims.map(p => p.id);
+      for (const p of victims) await DB.remove('players', p.id);
+      for (const e of all('events').filter(e => ids.indexOf(e.playerId) >= 0)) await DB.remove('events', e.id);
+      await loadAll();
     }
-    await DB.bulkPut('events', evs);
-    await loadAll();
+    await setSetting('demoPurged', true);
   }
 
   return {
     uid, loadAll, all, find, save, remove, onChange,
     getSetting, setSetting, teamStats, playerStats, matchEvents,
-    seedIfEmpty, GOAL_TYPES
+    seedIfEmpty, purgeDemoPlayers, GOAL_TYPES
   };
 })();

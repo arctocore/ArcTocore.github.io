@@ -129,6 +129,7 @@ const App = (() => {
   async function boot() {
     await Store.loadAll();
     await Store.seedIfEmpty();
+    await Store.purgeDemoPlayers();
     const theme = await Store.getSetting('theme', 'dark');
     setTheme(theme);
     const lang = await Store.getSetting('lang', 'en');

@@ -21,6 +21,12 @@ Views.tactics = function (mount) {
   let dartTurn = 0;        // round-robin dart index
   let cueCharge = null;    // cue press-and-hold state {x,y,t}
   let chargeTimer = null;  // redraw loop while charging the cue
+  let press = null;        // select-mode press candidate (tap vs hold vs drag)
+  let holdTimer = null;    // long-press timer (auto-select)
+  let saveTimer = null;    // debounced autosave timer
+  let courtMode = 'full';  // 'full' | 'half' court view (team sports)
+  const HOLD_MS = 380;     // press duration counted as a long-press (auto-select)
+  const MOVE_TOL = 2.2;    // percent movement that turns a press into a drag
 
   // ---------- Sound (single instance: reset & replay, never overlap) ----------
   const Sfx = (() => {
@@ -84,6 +90,7 @@ Views.tactics = function (mount) {
     return { objects: sport().formation(), shapes: [] };
   }
   current = loadOrNew();
+  courtMode = current.courtMode || 'full';
 
   // ---------- Boxing mode ----------
   let boxLog = [];          // list of {t, actor, action, hit}
@@ -195,6 +202,7 @@ Views.tactics = function (mount) {
         <button class="btn sm" id="undoBtn" title="${T('tactics.undo')}">↶ ${T('tactics.undo')}</button>
         <button class="btn sm" id="redoBtn" title="${T('tactics.redo')}">↷ ${T('tactics.redo')}</button>
         <button class="btn" id="savePlay">${T('tactics.save')}</button>
+        <button class="btn" id="shotBtn" title="${T('tactics.screenshot')}">📷 ${T('tactics.screenshot')}</button>
         <button class="btn" id="fullscreenBtn">⛶ ${T('tactics.fullscreen')}</button>
       </div>
     </div>
@@ -213,6 +221,14 @@ Views.tactics = function (mount) {
             ${['#ffd400', '#ff3b30', '#34c759', '#0a84ff', '#ffffff', '#0b1220'].map(c => `<div class="tool-btn" data-color="${c}" style="background:${c};min-width:30px;height:30px"></div>`).join('')}
           </div>
           <button class="btn sm danger" id="clearShapes" style="margin-top:8px">${T('tactics.eraseTools')}</button>
+          <button class="btn sm hidden" id="keeperToggle" style="margin-top:8px" title="${T('tactics.keeperHint')}"></button>
+          <div id="courtModeWrap" class="hidden" style="margin-top:12px">
+            <h3 style="margin:0 0 6px">${T('tactics.court')}</h3>
+            <select id="courtModeSel">
+              <option value="full">${T('tactics.fullCourt')}</option>
+              <option value="half">${T('tactics.halfCourt')}</option>
+            </select>
+          </div>
         </div>
         <div id="boxingTools" class="boxing-panel hidden">
           <h3 style="margin-top:12px">${T('boxing.title')}</h3>
@@ -273,12 +289,29 @@ Views.tactics = function (mount) {
     if (history.length > 60) history.shift();
     future = [];
     updateUndoButtons();
+    scheduleAutosave();
+  }
+  // Debounced persistence: quietly saves the current play after any edit
+  // (moving players, shooting the ball, drawing…) so nothing is ever lost.
+  function scheduleAutosave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      saveTimer = null;
+      try {
+        const nameInput = mount.querySelector('#playName');
+        current.name = (nameInput && nameInput.value.trim()) || current.name || 'Untitled Play';
+        current.sport = sportId;
+        current.courtMode = courtMode;
+        const saved = await Store.save('tactics', current);
+        if (saved && saved.id) current.id = saved.id;
+      } catch (e) { /* ignore autosave failures */ }
+    }, 700);
   }
   function restore(json) {
     const s = JSON.parse(json);
     current.frames = s.frames;
     frameIdx = Math.min(s.frameIdx, current.frames.length - 1);
-    draw(); renderTimeline();
+    draw(); renderTimeline(); scheduleAutosave();
   }
   function undo() {
     if (!history.length) return;
@@ -298,18 +331,19 @@ Views.tactics = function (mount) {
     if (r) r.disabled = !future.length;
   }
 
+  function isHalf() { return courtMode === 'half' && !!(window.SPORTS && SPORTS.isTeam && SPORTS.isTeam(sportId)); }
   function toPct(e) {
     const r = canvas.getBoundingClientRect();
-    const px = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) / r.width * 100;
-    const py = ((e.touches ? e.touches[0].clientY : e.clientY) - r.top) / r.height * 100;
-    return { x: Math.max(0, Math.min(100, px)), y: Math.max(0, Math.min(100, py)) };
+    let px = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) / r.width * 100;
+    let py = ((e.touches ? e.touches[0].clientY : e.clientY) - r.top) / r.height * 100;
+    px = Math.max(0, Math.min(100, px)); py = Math.max(0, Math.min(100, py));
+    if (isHalf()) py = py / 2;   // viewport shows only the attacking half (logical y 0–50)
+    return { x: px, y: py };
   }
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
   function drawCourt() {
-    const W = canvas.width, H = canvas.height;
-    ctx.clearRect(0, 0, W, H);
-    sport().court(ctx, W, H);
+    sport().court(ctx, canvas.width, canvas.height);
   }
 
   function drawPlayer(o, x, y) {
@@ -317,6 +351,11 @@ Views.tactics = function (mount) {
       ctx.beginPath(); ctx.arc(x, y, 22, 0, 7);
       ctx.fillStyle = 'rgba(255,212,0,.25)'; ctx.fill();
       ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+    // Active goalkeeper: green ring signals that shots aimed here are saved.
+    if (o.kind === 'gk' && o.active) {
+      ctx.beginPath(); ctx.arc(x, y, 20, 0, 7);
+      ctx.strokeStyle = '#34c759'; ctx.lineWidth = 3; ctx.stroke();
     }
     ctx.beginPath(); ctx.arc(x, y, o.kind === 'gk' ? 16 : 15, 0, 7);
     ctx.fillStyle = o.kind === 'gk' ? '#f59e0b' : (o.team === 'atk' ? '#0a84ff' : '#ff3b30'); ctx.fill();
@@ -438,6 +477,9 @@ Views.tactics = function (mount) {
   }
 
   function draw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (isHalf()) ctx.setTransform(1, 0, 0, 2, 0, 0);   // zoom into the attacking half
     drawCourt();
     const f = frame();
     f.shapes.forEach(drawShape);
@@ -480,9 +522,23 @@ Views.tactics = function (mount) {
         ctx.lineWidth = 4; ctx.stroke();
       }
     }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (sportId === 'boxing') drawBoxingHud();
+    updateKeeperToggle();
   }
 
+  // Show/refresh the "Keeper active" toggle only when a goalkeeper is on the board.
+  function updateKeeperToggle() {
+    const btn = mount.querySelector('#keeperToggle');
+    if (!btn) return;
+    const gk = goalkeeper();
+    if (!gk) { btn.classList.add('hidden'); return; }
+    btn.classList.remove('hidden');
+    const on = !!gk.active;
+    btn.classList.toggle('primary', on);
+    const label = (on ? '\uD83E\uDDE4 ' : '\u26E8 ') + T('tactics.keeper') + ': ' + (on ? T('common.on') : T('common.off'));
+    if (btn.textContent !== label) btn.textContent = label;
+  }
   function drawShape(s) {
     ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = 3;
     const sx = s.x1 / 100 * canvas.width, sy = s.y1 / 100 * canvas.height;
@@ -558,7 +614,8 @@ Views.tactics = function (mount) {
     const mate = frame().objects.find(o => o.kind === 'player' && o.id !== selectedId && dist(o, p) < 7);
     const nearGoal = p.y < 22 || p.y > 78;
     if (mate) return { mode: 'pass', target: { x: mate.x, y: mate.y }, mate };
-    if (gk && dist(gk, p) < 10) return { mode: 'save', target: { x: gk.x, y: gk.y } };
+    // Ball only magnets to (is saved by) the keeper when the keeper is active.
+    if (gk && gk.active && dist(gk, p) < 10) return { mode: 'save', target: { x: gk.x, y: gk.y } };
     return { mode: 'shot', target: p, nearGoal };
   }
 
@@ -591,6 +648,7 @@ Views.tactics = function (mount) {
         else { UI.toast(T('tactics.shotGoal'), 'success'); }
         draw();
         if (autoRec) captureAutoFrame();
+        scheduleAutosave();
       }
     }, 30);
   }
@@ -714,9 +772,16 @@ Views.tactics = function (mount) {
     const p = toPct(e);
     if (tool === 'select') {
       const o = hitObject(p, ['player', 'gk', 'boxer', 'piece', 'card', 'checker']);
-      if (o) selectedId = o.id;
-      drag = hitObject(p);
-      if (drag) pushHistory();
+      const grab = hitObject(p);                 // any object incl. the ball
+      press = { start: p, o: o || null, grab: grab || null, moved: false, hist: false, t: Date.now(), long: false };
+      if (holdTimer) clearTimeout(holdTimer);
+      if (o) {
+        // A still long-press "picks up" (auto-selects) the player.
+        holdTimer = setTimeout(() => {
+          if (!press || press.moved) return;
+          press.long = true; selectedId = o.id; draw();
+        }, HOLD_MS);
+      }
       draw(); return;
     }
     if (tool === 'shoot') {
@@ -745,6 +810,18 @@ Views.tactics = function (mount) {
       else if (sportId === 'darts') { aim = { x: p.x, y: p.y, mode: 'shot', from: { x: 50, y: 97 } }; draw(); return; }
       else if (selected()) { const info = classifyAim(p); aim = { x: p.x, y: p.y, mode: info.mode }; draw(); return; }
     }
+    // Select-mode: once the press moves far enough it becomes a drag (move the object).
+    if (tool === 'select' && press && !drag) {
+      if (dist(p, press.start) > MOVE_TOL) {
+        press.moved = true;
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        if (press.grab) {
+          if (press.o) selectedId = press.o.id;
+          if (!press.hist) { pushHistory(); press.hist = true; }
+          drag = press.grab;
+        }
+      }
+    }
     if (!drag && !drawing) return;
     e.preventDefault();
     if (drag) {
@@ -760,12 +837,29 @@ Views.tactics = function (mount) {
   }
   function end() {
     if (cueCharge) { releaseCueShot(); return; }   // fire the charged cue shot
-    if (drawing) { frame().shapes.push(drawing); drawing = null; draw(); if (autoRec) captureAutoFrame(); }
+    if (drawing) { frame().shapes.push(drawing); drawing = null; draw(); if (autoRec) captureAutoFrame(); scheduleAutosave(); }
     if (drag) {
       boxSuppressClick = (drag.kind === 'boxer');
       applyMagnet(); drag = null; draw();
-      if (autoRec) captureAutoFrame();
+      if (autoRec) captureAutoFrame(); scheduleAutosave();
+    } else if (tool === 'select' && press && !press.moved && !press.long) {
+      handleSelectTap(press);                       // quick tap: select, or pass to a tapped mate
     }
+    press = null;
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  }
+
+  // A quick tap in select mode selects the tapped object; if a team-mate is
+  // already selected and a *different* player is tapped, the ball is passed to it.
+  function handleSelectTap(pr) {
+    const o = pr.o;
+    if (!o) return;                                 // tapped empty space — keep selection
+    if (ball() && selectedId && o.id !== selectedId && o.kind === 'player' && selected()) {
+      shoot({ x: o.x, y: o.y });                    // classifyAim → pass; selection moves to o
+      return;
+    }
+    selectedId = o.id;
+    draw();
   }
 
   canvas.addEventListener('mousedown', start);
@@ -797,6 +891,8 @@ Views.tactics = function (mount) {
       let t = 0;
       const step = setInterval(() => {
         t += 0.1;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawCourt();
         a.shapes.forEach(drawShape);
         a.objects.forEach(o => {
@@ -945,6 +1041,7 @@ Views.tactics = function (mount) {
     sportId = b.dataset.sport;
     if (window.App && App.setSport) App.setSport(sportId, true);
     current = loadOrNew();
+    courtMode = current.courtMode || 'full';
     history = []; future = []; updateUndoButtons();
     frameIdx = 0; selectedId = null; aim = null;
     mount.querySelectorAll('[data-sport]').forEach(x => x.classList.toggle('active', x === b));
@@ -952,6 +1049,7 @@ Views.tactics = function (mount) {
     setupBotMode();
     renderPlaybook();
     renderTools();
+    updateCourtModeUI();
     fitCanvas(); draw(); renderTimeline();
   });
   mount.querySelectorAll('[data-color]').forEach(b => b.onclick = () => {
@@ -961,6 +1059,41 @@ Views.tactics = function (mount) {
   });
   mount.querySelector('#playAnim').onclick = playAnimation;
   mount.querySelector('#clearShapes').onclick = () => { pushHistory(); frame().shapes = []; draw(); if (autoRec) captureAutoFrame(); };
+  const keeperBtn = mount.querySelector('#keeperToggle');
+  if (keeperBtn) keeperBtn.onclick = () => {
+    const gk = goalkeeper(); if (!gk) return;
+    pushHistory();
+    gk.active = !gk.active;
+    updateKeeperToggle(); draw();
+    UI.toast(gk.active ? T('tactics.keeperOn') : T('tactics.keeperOff'), gk.active ? 'success' : 'error');
+  };
+  const shotBtn = mount.querySelector('#shotBtn');
+  if (shotBtn) shotBtn.onclick = () => {
+    try {
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url; a.download = ((current.name || 'tactics-board').replace(/[^\w.-]+/g, '_')) + '.png'; a.click();
+      UI.toast(T('tactics.shotSaved'), 'success');
+    } catch (e) { UI.toast(T('tactics.shotFailed'), 'error'); }
+  };
+  function updateCourtModeUI() {
+    const wrap = mount.querySelector('#courtModeWrap');
+    if (!wrap) return;
+    const isTeam = !!(window.SPORTS && SPORTS.isTeam && SPORTS.isTeam(sportId));
+    wrap.classList.toggle('hidden', !isTeam);
+    const sel = mount.querySelector('#courtModeSel'); if (sel) sel.value = courtMode;
+  }
+  const courtModeSel = mount.querySelector('#courtModeSel');
+  if (courtModeSel) courtModeSel.onchange = () => {
+    courtMode = courtModeSel.value;
+    pushHistory();
+    current.courtMode = courtMode;
+    frame().objects = (courtMode === 'half' && window.SPORTS && SPORTS.halfFormation)
+      ? SPORTS.halfFormation(sportId) : defaultFrame().objects;
+    selectedId = null; aim = null;
+    fitCanvas(); draw();
+    UI.toast(courtMode === 'half' ? T('tactics.halfCourt') : T('tactics.fullCourt'), 'success');
+  };
   mount.querySelector('#recFramesBtn').onclick = toggleAutoRecord;
   mount.querySelector('#undoBtn').onclick = undo;
   mount.querySelector('#redoBtn').onclick = redo;
@@ -1055,6 +1188,7 @@ Views.tactics = function (mount) {
   setupBotMode();
   renderPlaybook();
   renderTools();
+  updateCourtModeUI();
   updateUndoButtons();
   fitCanvas();
   draw(); renderTimeline();
@@ -1062,6 +1196,8 @@ Views.tactics = function (mount) {
     if (animTimer) clearInterval(animTimer);
     if (physTimer) clearInterval(physTimer);
     if (chargeTimer) clearInterval(chargeTimer);
+    if (holdTimer) clearTimeout(holdTimer);
+    if (saveTimer) clearTimeout(saveTimer);
     Sfx.stopAll();
     if (autoRec) { if (autoRec.rec && autoRec.rec.state !== 'inactive') { try { autoRec.rec.stop(); } catch (e) {} } clearInterval(recTimer); }
     document.removeEventListener('keydown', onBoxKey);
