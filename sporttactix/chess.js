@@ -239,7 +239,7 @@ window.ChessBot = (() => {
         </div>
       </div>`;
 
-    const modal = (window.UI && UI.modal) ? UI.modal({ title: tr('chess.title', 'Play the Kasparov Bot'), body, width: 640, onOpen: init }) : fallbackModal();
+    const modal = (window.UI && UI.modal) ? UI.modal({ title: tr('chess.title', 'Play the Kasparov Bot'), body, width: 640, fullscreen: true, onOpen: init }) : fallbackModal();
 
     function fallbackModal() {
       const host = document.getElementById('modalHost') || document.body;

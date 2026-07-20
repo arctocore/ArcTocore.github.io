@@ -368,6 +368,18 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 .modal-head h2 { font-size: 17px; }
 .modal-body { padding: 20px; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--border); }
+.modal-head-actions { display: flex; align-items: center; }
+.modal-head-actions > * + * { margin-left: 6px; } /* margin, not flex-gap (unsupported on old iPad Safari) */
+.modal .fs-btn { font-size: 18px; line-height: 1; }
+.modal .fs-btn.on { color: var(--primary); }
+/* Full-screen modal. The native Fullscreen API adds this class via JS; on old
+   iPads / iOS Safari (no element Fullscreen API) the class alone fills the
+   viewport. Longhand offsets are used because `inset` is unsupported on old Safari. */
+.modal.modal-fs { position: fixed; top: 0; right: 0; bottom: 0; left: 0; width: auto; max-width: none; max-height: none; margin: 0; border-radius: 0; z-index: 300; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.modal.modal-fs .modal-body { display: flex; flex-direction: column; align-items: center; }
+.modal.modal-fs .cb-board { grid-template-columns: repeat(8, min(9.4vmin, 84px)); grid-template-rows: repeat(8, min(9.4vmin, 84px)); }
+.modal.modal-fs .cb-pc { font-size: min(7vmin, 62px); }
+.modal.modal-fs .bg-board { width: min(96vw, 880px); }
 .hidden { display: none !important; }
 
 /* Toast */

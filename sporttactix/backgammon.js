@@ -171,7 +171,7 @@ window.BackgammonBot = (() => {
         </div>
       </div>`;
 
-    const modal = (window.UI && UI.modal) ? UI.modal({ title: tr('bg.title', 'Play the Backgammon Bot'), body, width: 720, onOpen: init }) : null;
+    const modal = (window.UI && UI.modal) ? UI.modal({ title: tr('bg.title', 'Play the Backgammon Bot'), body, width: 720, fullscreen: true, onOpen: init }) : null;
 
     function init(m) {
       boardEl = m.querySelector('#bgBoard'); diceEl = m.querySelector('#bgDice'); statusEl = m.querySelector('#bgStatus');

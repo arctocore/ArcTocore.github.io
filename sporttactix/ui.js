@@ -50,7 +50,10 @@ const UI = (() => {
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 2600);
   }
 
-  function modal({ title, body, footer, onOpen, width }) {
+  // Translate helper that tolerates i18n not being loaded yet.
+  function tr(key, fallback) { return (typeof T === 'function' && T(key)) || fallback; }
+
+  function modal({ title, body, footer, onOpen, width, fullscreen }) {
     const host = document.getElementById('modalHost');
     host.innerHTML = '';
     // When a view is in the Fullscreen API, only descendants of the fullscreen
@@ -59,9 +62,12 @@ const UI = (() => {
     const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement || null;
     const homeParent = host.parentNode;
     if (fsEl && !fsEl.contains(host)) fsEl.appendChild(host);
+    const fsBtn = fullscreen
+      ? `<button class="icon-btn fs-btn" data-fs type="button" title="${esc(tr('common.fullscreen', 'Full Screen'))}" aria-label="${esc(tr('common.fullscreen', 'Full Screen'))}">\u26f6</button>`
+      : '';
     const m = el(`
       <div class="modal" style="${width ? 'max-width:' + width + 'px' : ''}">
-        <div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-close>${icon('close', 18)}</button></div>
+        <div class="modal-head"><h2>${esc(title)}</h2><div class="modal-head-actions">${fsBtn}<button class="icon-btn" data-close type="button">${icon('close', 18)}</button></div></div>
         <div class="modal-body"></div>
         ${footer ? '<div class="modal-foot"></div>' : ''}
       </div>`);
@@ -69,7 +75,9 @@ const UI = (() => {
     if (footer) m.querySelector('.modal-foot').innerHTML = footer;
     host.appendChild(m);
     host.classList.remove('hidden');
+    const detachFs = fullscreen ? setupModalFullscreen(m) : null;
     const close = () => {
+      if (detachFs) detachFs();
       host.classList.add('hidden'); host.innerHTML = '';
       if (host.parentNode !== homeParent) homeParent.appendChild(host); // restore original position
     };
@@ -77,6 +85,54 @@ const UI = (() => {
     host.onclick = e => { if (e.target === host) close(); };
     if (onOpen) onOpen(m, close);
     return { root: m, close };
+  }
+
+  // Wires up the modal's full-screen toggle button. Uses the native Fullscreen
+  // API on desktop / Android / newer iPadOS; on older iPads & iOS Safari (which
+  // expose no element-level Fullscreen API) it falls back to a CSS class that
+  // fills the viewport, so the bot games are still playable full-screen there.
+  function setupModalFullscreen(m) {
+    const btn = m.querySelector('[data-fs]');
+    if (!btn) return null;
+    const req = m.requestFullscreen || m.webkitRequestFullscreen || m.webkitRequestFullScreen || m.msRequestFullscreen || null;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.webkitCancelFullScreen || document.msExitFullscreen || null;
+    const nativeSupported = !!(req && exit);
+    let cssFs = false; // CSS-fallback full screen active (old iPad / iOS)
+
+    function nativeEl() { return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null; }
+    function isOn() { return nativeEl() === m || cssFs; }
+    function sync() {
+      const on = isOn();
+      m.classList.toggle('modal-fs', on);
+      btn.classList.toggle('on', on);
+      const label = tr(on ? 'common.exitFullscreen' : 'common.fullscreen', on ? 'Exit Full Screen' : 'Full Screen');
+      btn.title = label; btn.setAttribute('aria-label', label);
+    }
+    function enterCss() { cssFs = true; sync(); }
+    function toggle() {
+      if (nativeEl() === m) { exit.call(document); return; }   // leave native full screen
+      if (cssFs) { cssFs = false; sync(); return; }            // leave CSS fallback
+      if (nativeSupported) {
+        let p;
+        try { p = req.call(m); } catch (e) { enterCss(); return; }
+        if (p && typeof p.catch === 'function') p.catch(enterCss); // rejected (e.g. iOS) → fallback
+      } else {
+        enterCss();
+      }
+    }
+    btn.onclick = toggle;
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    document.addEventListener('MSFullscreenChange', sync);
+    sync();
+    return function detach() {
+      document.removeEventListener('fullscreenchange', sync);
+      document.removeEventListener('webkitfullscreenchange', sync);
+      document.removeEventListener('MSFullscreenChange', sync);
+      if (nativeEl() === m && exit) { try { exit.call(document); } catch (e) { } }
+      cssFs = false;
+      m.classList.remove('modal-fs');
+    };
   }
 
   function confirm(msg, onYes) {

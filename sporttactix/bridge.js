@@ -105,7 +105,7 @@ window.BridgeBot = (() => {
           <button class="btn sm primary" id="brNew">${tr('bridge.newDeal', 'New Deal')}</button>
         </div>
       </div>`;
-    const modal = (window.UI && UI.modal) ? UI.modal({ title: tr('bridge.title', 'Play the Bridge Bot'), body, width: 660, onOpen: init }) : null;
+    const modal = (window.UI && UI.modal) ? UI.modal({ title: tr('bridge.title', 'Play the Bridge Bot'), body, width: 660, fullscreen: true, onOpen: init }) : null;
 
     function init(m) {
       boardEl = m.querySelector('#brTable');

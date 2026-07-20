@@ -120,7 +120,7 @@ window.PokerBot = (() => {
           <button class="btn sm primary" id="pkNew">${tr('poker.newHand', 'New Hand')}</button>
         </div>
       </div>`;
-    const modal = (window.UI && UI.modal) ? UI.modal({ title: tr('poker.title', 'Play the Poker Bot'), body, width: 640, onOpen: init }) : null;
+    const modal = (window.UI && UI.modal) ? UI.modal({ title: tr('poker.title', 'Play the Poker Bot'), body, width: 640, fullscreen: true, onOpen: init }) : null;
 
     function init(m) {
       boardEl = m.querySelector('#pkTable');
