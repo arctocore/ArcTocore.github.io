@@ -160,7 +160,11 @@ const I18N = (() => {
       'sync.trained': 'Trained', 'sync.noData': 'No data yet', 'sync.lastUpdate': 'Updated', 'sync.message': 'Message', 'sync.email': 'Email', 'sync.player': 'Player', 'sync.status': 'Training',
       'sync.iam': 'I am', 'sync.selectPlayer': 'Select your name', 'sync.enterCode': 'Invite code (folder ID)', 'sync.joinTeam': 'Join team', 'sync.joined': 'Joined team',
       'sync.sendTraining': 'Send my training', 'sync.trainingSent': 'Training sent to coach', 'sync.messageCoach': 'Message coach', 'sync.coach': 'Coach', 'sync.you': 'You',
-      'sync.typeMessage': 'Type a message\u2026', 'sync.send': 'Send', 'sync.noMessages': 'No messages yet', 'sync.sessions': 'sessions'
+      'sync.typeMessage': 'Type a message\u2026', 'sync.send': 'Send', 'sync.noMessages': 'No messages yet', 'sync.sessions': 'sessions',
+      'sync.driveMode': 'Online \u2014 via Google Drive', 'sync.offlineMode': 'Offline \u2014 files & codes', 'sync.driveHint': 'Set players up once, then message them and read the training they share back.',
+      'sync.setupDrive': 'Set up players on Drive', 'sync.setupConfirm': 'Create a Google Drive file for every player with an email and invite them to it?', 'sync.driveSetupDone': 'Players set up on Google Drive', 'sync.noEmailPlayers': 'Add an email to your players first.',
+      'sync.refresh': 'Refresh', 'sync.refreshed': 'Updated from Google Drive',
+      'sync.loadChannel': 'Load my messages', 'sync.noChannel': 'No shared file yet \u2014 ask your coach to invite you by email.', 'sync.channelLoaded': 'Connected to your coach', 'sync.messageSent': 'Message sent'
     },
     da: {
       'nav.dashboard': 'Oversigt',
@@ -353,7 +357,11 @@ const I18N = (() => {
       'sync.trained': 'Trænet', 'sync.noData': 'Ingen data endnu', 'sync.lastUpdate': 'Opdateret', 'sync.message': 'Besked', 'sync.email': 'E-mail', 'sync.player': 'Spiller', 'sync.status': 'Træning',
       'sync.iam': 'Jeg er', 'sync.selectPlayer': 'Vælg dit navn', 'sync.enterCode': 'Invitationskode (mappe-ID)', 'sync.joinTeam': 'Tilslut hold', 'sync.joined': 'Tilsluttet hold',
       'sync.sendTraining': 'Send min træning', 'sync.trainingSent': 'Træning sendt til træner', 'sync.messageCoach': 'Skriv til træner', 'sync.coach': 'Træner', 'sync.you': 'Dig',
-      'sync.typeMessage': 'Skriv en besked\u2026', 'sync.send': 'Send', 'sync.noMessages': 'Ingen beskeder endnu', 'sync.sessions': 'sessioner'
+      'sync.typeMessage': 'Skriv en besked\u2026', 'sync.send': 'Send', 'sync.noMessages': 'Ingen beskeder endnu', 'sync.sessions': 'sessioner',
+      'sync.driveMode': 'Online \u2014 via Google Drive', 'sync.offlineMode': 'Offline \u2014 filer & koder', 'sync.driveHint': 'Ops\u00e6t spillerne \u00e9n gang, skriv derefter til dem og l\u00e6s den tr\u00e6ning, de deler tilbage.',
+      'sync.setupDrive': 'Ops\u00e6t spillere p\u00e5 Drive', 'sync.setupConfirm': 'Opret en Google Drive-fil for hver spiller med en e-mail og inviter dem til den?', 'sync.driveSetupDone': 'Spillere opsat p\u00e5 Google Drive', 'sync.noEmailPlayers': 'Tilf\u00f8j en e-mail til dine spillere f\u00f8rst.',
+      'sync.refresh': 'Opdat\u00e9r', 'sync.refreshed': 'Opdateret fra Google Drive',
+      'sync.loadChannel': 'Hent mine beskeder', 'sync.noChannel': 'Ingen delt fil endnu \u2014 bed din tr\u00e6ner invitere dig via e-mail.', 'sync.channelLoaded': 'Forbundet til din tr\u00e6ner', 'sync.messageSent': 'Besked sendt'
     }
   };
   let lang = 'en';

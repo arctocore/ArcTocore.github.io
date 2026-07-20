@@ -68,7 +68,8 @@ body {
 .brand-logo { color: var(--primary); display: inline-flex; align-items: center; filter: drop-shadow(0 3px 9px rgba(0,0,0,.28)); transition: transform .25s ease; }
 .brand-logo:hover { transform: rotate(-4deg) scale(1.06); }
 .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-.brand-text strong { font-family: var(--steel); font-size: 15px; font-weight: 900; color: #aab4c0; background: linear-gradient(180deg,#eef2f7,#b4beca 38%,#5c6672 52%,#9aa4b0 68%,#d7dde5); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+.brand-text strong { font-family: var(--steel); font-size: 15px; font-weight: 900; color: #fff; background: none; -webkit-background-clip: border-box; background-clip: border-box; -webkit-text-fill-color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+[data-theme="light"] .brand-text strong { background: linear-gradient(180deg,#3a424c,#1a1f26 42%,#05070a 54%,#222932 70%,#0a0e12); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #0a0e12; filter: drop-shadow(0 1px .5px rgba(255,255,255,.55)); }
 .brand-text span { font-size: 11px; color: var(--muted); }
 .brand-title { display: flex; align-items: center; gap: 6px; }
 .runner { color: var(--primary); flex: none; animation: runnerBob .32s ease-in-out infinite; }
@@ -123,7 +124,37 @@ body {
 /* Sidebar sport picker */
 .sport-picker { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
 .sport-picker label { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 600; }
-.sport-picker select { width: 100%; }
+
+/* Custom sport dropdown — a native <option> can't render an SVG, so this
+   listbox shows each sport's inline symbol beside its translated name. */
+.sport-select { position: relative; width: 100%; }
+.sport-select-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 11px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text); font-family: inherit; font-size: 13px; font-weight: 600;
+}
+.sport-select-btn:hover, .sport-select-btn[aria-expanded="true"] { border-color: var(--primary); }
+.sport-select-ico { color: var(--primary); display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none; }
+.sport-select-ico svg { display: block; width: 22px; height: 22px; }
+.sport-select-name { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sport-select-chev { color: var(--muted); flex: none; transition: transform .2s ease; }
+.sport-select-btn[aria-expanded="true"] .sport-select-chev { transform: rotate(180deg); }
+.sport-select-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60;
+  margin: 0; padding: 5px; list-style: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 11px;
+  box-shadow: var(--shadow); max-height: 340px; overflow-y: auto;
+}
+.sport-select-opt {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 9px; border-radius: 8px; cursor: pointer;
+  color: var(--text-soft); font-weight: 600; font-size: 13px;
+}
+.sport-select-opt .sport-select-ico { color: var(--primary); }
+.sport-select-opt:hover { background: var(--surface-2); color: var(--text); }
+.sport-select-opt.active { background: var(--primary); color: #fff; }
+.sport-select-opt.active .sport-select-ico { color: #fff; }
 
 /* Boxing panel */
 .boxing-panel { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
@@ -466,7 +497,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
     var(--bg);
 }
 [data-theme="dark"] .brand-logo {
-  filter: drop-shadow(0 0 6px rgba(255,106,0,.5));
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.45));
 }
 [data-theme="dark"] .nav-item.active {
   background: linear-gradient(90deg, var(--primary), #ff8a3d);

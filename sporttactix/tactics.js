@@ -337,12 +337,15 @@ Views.tactics = function (mount) {
     let px = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) / r.width * 100;
     let py = ((e.touches ? e.touches[0].clientY : e.clientY) - r.top) / r.height * 100;
     px = Math.max(0, Math.min(100, px)); py = Math.max(0, Math.min(100, py));
-    if (isHalf()) py = py / 2;   // viewport shows only the attacking half (logical y 0–50)
     return { x: px, y: py };
   }
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
   function drawCourt() {
+    if (isHalf() && SPORTS.halfCourt) {
+      const hc = SPORTS.halfCourt(sportId);
+      if (hc) { hc(ctx, canvas.width, canvas.height); return; }
+    }
     sport().court(ctx, canvas.width, canvas.height);
   }
 
@@ -479,7 +482,6 @@ Views.tactics = function (mount) {
   function draw() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (isHalf()) ctx.setTransform(1, 0, 0, 2, 0, 0);   // zoom into the attacking half
     drawCourt();
     const f = frame();
     f.shapes.forEach(drawShape);
@@ -628,11 +630,26 @@ Views.tactics = function (mount) {
     shootTeam(p);
   }
 
+  // Extend a shot from `from` through the aim point out to the court boundary,
+  // so the ball flies in that direction instead of stopping at the crosshair.
+  function extendShot(from, target) {
+    const dx = target.x - from.x, dy = target.y - from.y;
+    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return { x: target.x, y: target.y };
+    let t = Infinity;
+    if (dx > 0) t = Math.min(t, (100 - from.x) / dx);
+    else if (dx < 0) t = Math.min(t, (0 - from.x) / dx);
+    if (dy > 0) t = Math.min(t, (100 - from.y) / dy);
+    else if (dy < 0) t = Math.min(t, (0 - from.y) / dy);
+    if (!isFinite(t) || t < 1) t = 1;   // never fall short of the aim point
+    return { x: from.x + dx * t, y: from.y + dy * t };
+  }
+
   function shootTeam(p) {
     const s = selected(); const b = ball();
     if (!s) { UI.toast(T('tactics.selectFirst'), 'error'); return; }
     const info = classifyAim(p);
-    const from = { x: b.x, y: b.y }, to = info.target;
+    const from = { x: b.x, y: b.y };
+    const to = info.mode === 'shot' ? extendShot(from, info.target) : info.target;
     pushHistory();
     Sfx.whoosh();
     let t = 0;

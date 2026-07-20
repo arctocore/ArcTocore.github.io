@@ -13,7 +13,7 @@
       color:var(--text);line-height:1.6}
     header{padding:34px 24px;text-align:center;border-bottom:1px solid var(--border)}
     header .logo{color:var(--primary);filter:drop-shadow(0 0 8px rgba(255,106,0,.6))}
-    header h1{font-family:var(--steel);text-transform:uppercase;letter-spacing:1px;margin-top:0;font-size:26px;font-weight:900;color:#c2ccd6;background:linear-gradient(180deg,#eef2f7,#b4beca 38%,#5c6672 52%,#9aa4b0 68%,#d7dde5);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+    header h1{font-family:var(--steel);text-transform:uppercase;letter-spacing:1px;margin-top:0;font-size:26px;font-weight:900;color:#fff}
     .title-row{display:inline-flex;align-items:center;gap:9px;margin-top:6px}
     .runner{color:var(--primary);flex:none;animation:runnerBob .32s ease-in-out infinite}
     .runner .run-a{animation:runnerFrameA .32s steps(1,end) infinite}
@@ -24,8 +24,9 @@
     @media (prefers-reduced-motion:reduce){.runner,.runner .run-a,.runner .run-b{animation:none}.runner .run-b{opacity:0}}
     header p{color:var(--muted)}
     .wrap{max-width:960px;margin:0 auto;padding:24px}
-    .lang{position:fixed;top:16px;right:16px;display:flex;gap:6px}
-    .lang button{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:20px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+    .lang{position:fixed;top:16px;right:16px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;max-width:calc(100vw - 32px)}
+    .lang button,.lang a{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:20px;cursor:pointer;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+    .lang a:hover{border-color:var(--primary)}
     .lang button svg{border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
     .lang button.active{background:linear-gradient(90deg,var(--primary),#ff8a3d);border-color:transparent}
     nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
@@ -40,7 +41,7 @@
     kbd{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px}
     .tut{display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:center;margin-top:14px}
     @media(max-width:640px){.tut{grid-template-columns:1fr}}
-    .tut-list{columns:2;column-gap:28px;margin:12px 0 4px 20px}
+    .tut-list{columns:2;column-gap:28px;margin:12px 0 4px 20px;list-style:none;padding:0}
     @media(max-width:640px){.tut-list{columns:1}}
     .fig{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:8px}
     .tag{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:2px 10px;font-size:12px;color:var(--soft)}
@@ -80,28 +81,24 @@
     </defs>
   </svg>
   <div class="lang">
+    <a href="#sporttut"><svg class="sym"><use href="#i-target"/></svg> <span data-lang-en>Sport Tutorials</span><span data-lang-da>Sports-vejledninger</span></a>
     <button id="btnEn" class="active" onclick="setLang('en')"><svg viewBox="0 0 60 30" width="20" height="12" aria-hidden="true"><clipPath id="fen"><rect width="60" height="30"/></clipPath><g clip-path="url(#fen)"><rect width="60" height="30" fill="#012169"/><path d="M0,0 60,30M60,0 0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 60,30M60,0 0,30" stroke="#C8102E" stroke-width="4"/><path d="M30,0 V30M0,15 H60" stroke="#fff" stroke-width="10"/><path d="M30,0 V30M0,15 H60" stroke="#C8102E" stroke-width="6"/></g></svg> EN</button>
     <button id="btnDa" onclick="setLang('da')"><svg viewBox="0 0 37 28" width="20" height="12" aria-hidden="true"><rect width="37" height="28" fill="#C8102E"/><rect x="12" width="4" height="28" fill="#fff"/><rect y="12" width="37" height="4" fill="#fff"/></svg> DA</button>
   </div>
   <header>
     <div class="logo">
-      <svg viewBox="0 0 48 48" width="64" height="64" aria-hidden="true">
-        <rect x="3" y="3" width="42" height="42" rx="12" fill="currentColor"/>
-        <rect x="3.75" y="3.75" width="40.5" height="40.5" rx="11.3" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.3"/>
-        <path d="M33 15H21a5 5 0 0 0 0 10h2.5" fill="none" stroke="#fff" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -0.7)"/>
-        <path d="M26.5 25h.5a5 5 0 0 1 0 10H15" fill="none" stroke="#fff" stroke-opacity=".92" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 0.7)"/>
-      </svg>
+      <img src="logo.svg?v=3" width="64" height="64" alt="SportTactix logo" />
     </div>
     <div class="title-row">
       <h1>SportTactix</h1>
-      <svg class="runner" viewBox="0 0 28 30" width="26" height="28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <svg class="runner" viewBox="0 0 22 26" width="26" height="31" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <g class="run-a">
-          <circle cx="15" cy="6" r="3" fill="currentColor" stroke="none"/>
-          <path d="M15 9L13 18"/><path d="M14 11L20 10"/><path d="M14 11L8 14"/><path d="M13 18L20 26"/><path d="M13 18L7 27"/>
+          <circle cx="11" cy="5" r="2.7" fill="currentColor" stroke="none"/>
+          <path d="M11 7.6V15"/><path d="M11 9.4 15.4 5.6"/><path d="M11 9.4 6.4 13"/><path d="M11 15 7.4 21.8"/><path d="M11 15 14.6 21.8"/>
         </g>
         <g class="run-b">
-          <circle cx="15" cy="6" r="3" fill="currentColor" stroke="none"/>
-          <path d="M15 9L13 18"/><path d="M14 11L19 15"/><path d="M14 11L9 9"/><path d="M13 18L17 27"/><path d="M13 18L12 28"/>
+          <circle cx="11" cy="5" r="2.7" fill="currentColor" stroke="none"/>
+          <path d="M11 7.6V15"/><path d="M11 9.4 16.6 3.6"/><path d="M11 9.4 6.4 13"/><path d="M11 15 7.4 21.8"/><path d="M11 15 14.6 21.8"/>
         </g>
       </svg>
     </div>

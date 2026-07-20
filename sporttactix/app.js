@@ -43,16 +43,48 @@ const App = (() => {
   function setSport(id, silent) {
     currentSport = id;
     Store.setSetting('sport', id);
-    const sel = document.getElementById('sportSelect');
-    if (sel && sel.value !== id) sel.value = id;
+    updateSportPickerSelection();
     if (!silent) { render(); UI.toast(T('sport.changed') + ': ' + SPORTS.name(id, I18N.getLang()), 'success'); }
   }
+  // Chevron for the custom sport dropdown trigger.
+  const SPORT_CHEV = '<svg class="sport-select-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  // Builds a custom listbox (native <option> cannot show SVG) so every sport is
+  // shown with its inline symbol next to the translated name.
   function populateSportPicker() {
-    const sel = document.getElementById('sportSelect');
-    if (!sel) return;
+    const host = document.getElementById('sportSelect');
+    if (!host) return;
     const lang = I18N.getLang();
-    sel.innerHTML = SPORTS.LIST.map(s => `<option value="${s.id}">${SPORTS.name(s.id, lang)}</option>`).join('');
-    sel.value = currentSport;
+    const opt = s => `<li class="sport-select-opt${s.id === currentSport ? ' active' : ''}" role="option" data-sport="${s.id}" aria-selected="${s.id === currentSport}"><span class="sport-select-ico">${s.icon}</span><span class="sport-select-name">${SPORTS.name(s.id, lang)}</span></li>`;
+    host.innerHTML =
+      `<button type="button" class="sport-select-btn" id="sportSelectBtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="sportSelectLabel">` +
+        `<span class="sport-select-ico">${SPORTS.get(currentSport).icon}</span>` +
+        `<span class="sport-select-name">${SPORTS.name(currentSport, lang)}</span>` +
+        SPORT_CHEV +
+      `</button>` +
+      `<ul class="sport-select-menu hidden" id="sportSelectMenu" role="listbox">${SPORTS.LIST.map(opt).join('')}</ul>`;
+  }
+  // Reflects the active sport on the trigger button + highlights the option.
+  function updateSportPickerSelection() {
+    const host = document.getElementById('sportSelect');
+    if (!host) return;
+    const lang = I18N.getLang();
+    const ico = host.querySelector('.sport-select-btn .sport-select-ico');
+    const nm = host.querySelector('.sport-select-btn .sport-select-name');
+    if (ico) ico.innerHTML = SPORTS.get(currentSport).icon;
+    if (nm) nm.textContent = SPORTS.name(currentSport, lang);
+    host.querySelectorAll('.sport-select-opt').forEach(li => {
+      const on = li.dataset.sport === currentSport;
+      li.classList.toggle('active', on);
+      li.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+  function toggleSportMenu(open) {
+    const menu = document.getElementById('sportSelectMenu');
+    const btn = document.getElementById('sportSelectBtn');
+    if (!menu || !btn) return;
+    const willOpen = open == null ? menu.classList.contains('hidden') : open;
+    menu.classList.toggle('hidden', !willOpen);
+    btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
   }
 
   // ---- Sound on/off (mutes all app sound effects) ----
@@ -104,17 +136,22 @@ const App = (() => {
     const ls = document.getElementById('langSwitch');
     if (ls) ls.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setLang(b.dataset.lang); });
     const sp = document.getElementById('sportSelect');
-    if (sp) sp.addEventListener('change', () => setSport(sp.value));
+    if (sp) sp.addEventListener('click', e => {
+      const optn = e.target.closest('.sport-select-opt');
+      if (optn) { toggleSportMenu(false); setSport(optn.dataset.sport); return; }
+      if (e.target.closest('.sport-select-btn')) toggleSportMenu();
+    });
     const st = document.getElementById('soundToggle');
     if (st) st.onclick = () => setSound(window.SoundOn === false);
     const gs = document.getElementById('globalSearch');
     gs.addEventListener('input', () => search(gs.value));
     document.addEventListener('click', e => { if (!e.target.closest('.search-box')) document.getElementById('searchResults').classList.add('hidden'); });
+    document.addEventListener('click', e => { if (!e.target.closest('#sportSelect')) toggleSportMenu(false); });
 
     document.addEventListener('keydown', e => {
       if (e.target.matches('input,textarea,select')) { if (e.key === 'Escape') e.target.blur(); return; }
       if (e.key === '/') { e.preventDefault(); gs.focus(); }
-      else if (e.key === 'Escape') { const h = document.getElementById('modalHost'); if (!h.classList.contains('hidden')) { h.classList.add('hidden'); h.innerHTML = ''; } }
+      else if (e.key === 'Escape') { toggleSportMenu(false); const h = document.getElementById('modalHost'); if (!h.classList.contains('hidden')) { h.classList.add('hidden'); h.innerHTML = ''; } }
       else if (/^[1-9]$/.test(e.key)) { const r = ROUTES[+e.key - 1]; if (r) go(r); }
     });
   }

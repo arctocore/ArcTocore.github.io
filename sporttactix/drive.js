@@ -117,7 +117,7 @@ const Drive = (() => {
   // Create (POST) or update (PATCH) a JSON file via multipart upload.
   async function uploadJson(name, obj, opts) {
     opts = opts || {};
-    const meta = { name: name };
+    const meta = name ? { name: name } : {};
     if (!opts.fileId) {
       if (opts.spaces === 'appDataFolder') meta.parents = ['appDataFolder'];
       else if (opts.parent) meta.parents = [opts.parent];
@@ -203,42 +203,123 @@ const Drive = (() => {
   async function getTeamFolderId() { return await Store.getSetting('driveTeamFolderId', ''); }
   async function setTeamFolderId(id) { await Store.setSetting('driveTeamFolderId', (id || '').trim()); }
 
-  function trainingFileName(playerId) { return 'training-' + playerId + '.json'; }
+  // ---- Per-player channel (one JSON file per player on the coach's Drive) ----
+  // File name: player-<id>.json inside the team folder. A single document holds
+  // BOTH the coach<->player messages AND the training the player shares back, so
+  // the coach owns/controls it and the player (invited by email) can write to it.
+  function channelName(playerId) { return 'player-' + playerId + '.json'; }
 
-  // Player -> uploads their own training sessions so the coach can see progress.
-  async function pushTraining(folderId, playerId, playerName, sessions) {
-    const name = trainingFileName(playerId);
-    const existing = await findFile(name, folderId);
-    const payload = { playerId: playerId, playerName: playerName || '', updatedAt: now(), sessions: sessions || [] };
-    return uploadJson(name, payload, { fileId: existing ? existing.id : null, parent: folderId });
+  function fullName(p) {
+    return ((p.firstName || '') + ' ' + (p.lastName || '')).trim() || (p.name || '');
+  }
+  function skeleton(player, teamName) {
+    return {
+      v: 1,
+      playerId: player.id,
+      playerName: fullName(player),
+      email: player.email || '',
+      team: teamName || '',
+      messages: [],
+      training: { updatedAt: 0, sessions: [] }
+    };
+  }
+  function normalize(data) {
+    if (!data || typeof data !== 'object') data = {};
+    if (typeof data.v !== 'number') data.v = 1;
+    if (!Array.isArray(data.messages)) data.messages = [];
+    if (!data.training || typeof data.training !== 'object') data.training = { updatedAt: 0, sessions: [] };
+    if (!Array.isArray(data.training.sessions)) data.training.sessions = [];
+    return data;
+  }
+  function newMsg(from, fromName, text) {
+    return {
+      id: 'm_' + now().toString(36) + Math.random().toString(36).slice(2, 6),
+      from: from, fromName: fromName || '', text: String(text), at: now()
+    };
   }
 
-  // Coach -> reads every player's training file from the shared folder.
-  async function readAllTraining(folderId) {
-    const files = await listFiles("name contains 'training-' and '" + esc(folderId) + "' in parents and trashed=false");
-    const out = {};
+  // Find (optionally create) a player's channel file. Returns { fileId, data }.
+  async function ensureChannel(folderId, player, teamName, create) {
+    const name = channelName(player.id);
+    const existing = await findFile(name, folderId);
+    if (existing) {
+      let data; try { data = normalize(await downloadJson(existing.id)); } catch (e) { data = skeleton(player, teamName); }
+      return { fileId: existing.id, data: data };
+    }
+    if (!create) return { fileId: null, data: skeleton(player, teamName) };
+    const res = await uploadJson(name, skeleton(player, teamName), { parent: folderId });
+    return { fileId: res.id, data: skeleton(player, teamName) };
+  }
+
+  // Read a channel file by id (returns normalized data, or null if unreadable).
+  async function readChannel(fileId) {
+    try { return normalize(await downloadJson(fileId)); } catch (e) { return null; }
+  }
+
+  // Read the latest version, let the caller mutate it, then write it back. This
+  // read-modify-write keeps the coach's messages and the player's training from
+  // clobbering each other when both sides edit the same file.
+  async function updateChannel(fileId, mutate) {
+    let data; try { data = normalize(await downloadJson(fileId)); } catch (e) { data = normalize(null); }
+    mutate(data);
+    await uploadJson('', data, { fileId: fileId });
+    return data;
+  }
+
+  // Coach: create/connect the team folder and a shared file for every player
+  // that has an email, inviting each one by email with writer access.
+  async function setupTeam(teamName, players) {
+    const folderId = await ensureTeamFolder(teamName);
+    const results = [];
+    for (const p of players) {
+      const entry = { playerId: p.id, email: p.email || '', fileId: null, shared: false, error: '' };
+      if (!p.email) { entry.error = 'no-email'; results.push(entry); continue; }
+      try {
+        const ch = await ensureChannel(folderId, p, teamName, true);
+        entry.fileId = ch.fileId;
+        try { await shareWith(ch.fileId, p.email, 'writer'); entry.shared = true; }
+        catch (e) { entry.error = String((e && e.message) || e); }
+      } catch (e) { entry.error = String((e && e.message) || e); }
+      results.push(entry);
+    }
+    return { folderId: folderId, results: results };
+  }
+
+  // Coach: append a message to a player's channel.
+  async function coachSend(fileId, fromName, text) {
+    return updateChannel(fileId, d => { d.messages.push(newMsg('coach', fromName, text)); d.coachUpdatedAt = now(); });
+  }
+
+  // Coach: read every player channel file in the team folder.
+  async function coachReadAll(folderId) {
+    const files = await listFiles("name contains 'player-' and '" + esc(folderId) + "' in parents and trashed=false");
+    const out = [];
     for (const f of files) {
-      try { const data = await downloadJson(f.id); if (data && data.playerId) out[data.playerId] = data; }
+      try { const data = normalize(await downloadJson(f.id)); if (data.playerId) out.push(Object.assign({ fileId: f.id }, data)); }
       catch (e) { /* skip unreadable file */ }
     }
     return out;
   }
 
-  // ---- Messaging (one JSON thread file per coach/player pair) ----
-  function threadName(a, b) { const k = [String(a), String(b)].sort(); return 'msg-' + k[0] + '__' + k[1] + '.json'; }
-  async function readMessages(folderId, a, b) {
-    const existing = await findFile(threadName(a, b), folderId);
-    if (!existing) return { fileId: null, messages: [] };
-    try {
-      const data = await downloadJson(existing.id);
-      return { fileId: existing.id, messages: (data && data.messages) || [] };
-    } catch (e) { return { fileId: existing.id, messages: [] }; }
+  // Player: find the channel file(s) the coach shared with me by email invite.
+  async function findMyChannels() {
+    const files = await listFiles("name contains 'player-' and sharedWithMe = true and trashed=false");
+    const out = [];
+    for (const f of files) {
+      let data = null; try { data = normalize(await downloadJson(f.id)); } catch (e) { /* ignore */ }
+      out.push({ fileId: f.id, name: f.name, playerId: (data && data.playerId) || '', playerName: (data && data.playerName) || '' });
+    }
+    return out;
   }
-  async function sendMessage(folderId, from, fromName, to, text) {
-    const thread = await readMessages(folderId, from, to);
-    const messages = thread.messages.concat([{ from: from, fromName: fromName || '', to: to, text: text, at: now() }]);
-    await uploadJson(threadName(from, to), { messages: messages }, { fileId: thread.fileId, parent: folderId });
-    return messages;
+
+  // Player: append a reply to their channel.
+  async function playerSend(fileId, fromName, text) {
+    return updateChannel(fileId, d => { d.messages.push(newMsg('player', fromName, text)); d.playerUpdatedAt = now(); });
+  }
+
+  // Player: write their training sessions into their channel file.
+  async function playerPushTraining(fileId, sessions) {
+    return updateChannel(fileId, d => { d.training = { updatedAt: now(), sessions: sessions || [] }; d.playerUpdatedAt = now(); });
   }
 
   return {
@@ -246,7 +327,8 @@ const Drive = (() => {
     connect, disconnect,
     backupNow, restoreNow, lastBackupAt,
     ensureTeamFolder, getTeamFolderId, setTeamFolderId, shareWith,
-    pushTraining, readAllTraining, readMessages, sendMessage
+    channelName, ensureChannel, readChannel, updateChannel,
+    setupTeam, coachSend, coachReadAll, findMyChannels, playerSend, playerPushTraining
   };
 })();
 window.Drive = Drive;

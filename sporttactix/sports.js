@@ -414,6 +414,197 @@ const SPORTS = (() => {
     }
   };
 
+  // ---- half-court renderers (team sports) ----
+  // Draws the attacking half only: the goal / basket sits at the TOP and the
+  // halfway line runs along the BOTTOM edge. Every renderer is authored to fill
+  // the whole canvas at a true 1:1 scale, so — unlike a stretched full court —
+  // players, the ball and all arcs stay perfectly round and correctly aligned.
+  function halfMid(ctx, W, H, r) {
+    // halfway line along the bottom edge + a real centre-circle arc bulging up
+    ctx.beginPath(); ctx.moveTo(8, H - 8); ctx.lineTo(W - 8, H - 8); ctx.stroke();
+    if (r) { ctx.beginPath(); ctx.arc(W / 2, H - 8, r, Math.PI, 2 * Math.PI); ctx.stroke(); }
+  }
+  const halfCourts = {
+    handball(ctx, W, H) {
+      bg(ctx, W, H, '#1d64a8', '#2b7bc4'); frame(ctx, W, H);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+      halfMid(ctx, W, H, 66);
+      const gy = 12;
+      // 6m goal area (filled D) + solid arc
+      ctx.fillStyle = 'rgba(255,255,255,.10)';
+      ctx.beginPath(); ctx.arc(W / 2, gy, 170, 0, Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(W / 2, gy, 170, 0, Math.PI); ctx.stroke();
+      // 9m dashed free-throw arc
+      ctx.setLineDash([8, 7]);
+      ctx.beginPath(); ctx.arc(W / 2, gy, 250, 0, Math.PI); ctx.stroke();
+      ctx.setLineDash([]);
+      // 7m penalty mark
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(W / 2 - 12, gy + 150, 24, 3);
+      // goal mouth
+      ctx.fillStyle = '#ffd400'; ctx.fillRect(W / 2 - 46, 6, 92, 9);
+    },
+    soccer(ctx, W, H) {
+      bg(ctx, W, H, '#0d5c2b', '#159a45'); grassStripes(ctx, W, H, '#0f6a31', '#14893f', 10);
+      frame(ctx, W, H);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+      halfMid(ctx, W, H, 70);
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(W / 2, H - 8, 3, 0, 7); ctx.fill();
+      // penalty box + goal area at the top
+      ctx.strokeRect(W / 2 - 135, 8, 270, 96);
+      ctx.strokeRect(W / 2 - 66, 8, 132, 42);
+      // penalty spot + arc
+      ctx.fillRect(W / 2 - 2, 70, 4, 4);
+      ctx.beginPath(); ctx.arc(W / 2, 70, 50, 0.10 * Math.PI, 0.90 * Math.PI); ctx.stroke();
+      // goal mouth
+      ctx.fillStyle = '#ffd400'; ctx.fillRect(W / 2 - 42, 4, 84, 7);
+    },
+    basketball(ctx, W, H) {
+      bg(ctx, W, H, '#a5642e', '#c17a3a');
+      ctx.strokeStyle = 'rgba(0,0,0,.06)'; ctx.lineWidth = 1;
+      for (let x = 22; x < W - 8; x += 26) { ctx.beginPath(); ctx.moveTo(x, 8); ctx.lineTo(x, H - 8); ctx.stroke(); }
+      frame(ctx, W, H);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+      halfMid(ctx, W, H, 60);
+      const keyW = 150, keyH = 200, keyTop = 8;
+      ctx.fillStyle = 'rgba(255,138,61,.32)'; ctx.fillRect(W / 2 - keyW / 2, keyTop, keyW, keyH);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeRect(W / 2 - keyW / 2, keyTop, keyW, keyH);
+      // free-throw circle
+      ctx.beginPath(); ctx.arc(W / 2, keyTop + keyH, 58, 0, 7); ctx.stroke();
+      // three-point arc
+      ctx.beginPath(); ctx.arc(W / 2, 58, 250, 0.13 * Math.PI, 0.87 * Math.PI); ctx.stroke();
+      // backboard + rim
+      ctx.strokeStyle = '#ff8a3d'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(W / 2 - 40, 26); ctx.lineTo(W / 2 + 40, 26); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W / 2, 42, 12, 0, 7); ctx.stroke();
+      // restricted-area arc
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(W / 2, 42, 40, 0, Math.PI); ctx.stroke();
+    },
+    volleyball(ctx, W, H) {
+      bg(ctx, W, H, '#b5651d', '#d2792b'); frame(ctx, W, H);
+      ctx.strokeStyle = '#fff';
+      // net along the top edge
+      ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(8, 10); ctx.lineTo(W - 8, 10); ctx.stroke();
+      // attack (3m) line
+      ctx.lineWidth = 2; ctx.setLineDash([9, 7]);
+      ctx.beginPath(); ctx.moveTo(8, H * 0.44); ctx.lineTo(W - 8, H * 0.44); ctx.stroke();
+      ctx.setLineDash([]);
+    },
+    baseball(ctx, W, H) {
+      bg(ctx, W, H, '#0d5c2b', '#127a37');
+      const midY = (H - 60 + 80) / 2;
+      const home = [W / 2, H - 60], second = [W / 2, 80], first = [W - 110, midY], third = [110, midY];
+      ctx.fillStyle = '#b5651d';
+      ctx.beginPath(); ctx.moveTo(home[0], home[1]); ctx.lineTo(first[0], first[1]); ctx.lineTo(second[0], second[1]); ctx.lineTo(third[0], third[1]); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      // infield grass arc behind home
+      ctx.beginPath(); ctx.arc(home[0], home[1], 150, Math.PI, 2 * Math.PI); ctx.stroke();
+      // pitcher's mound
+      ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.beginPath(); ctx.arc(W / 2, H / 2 - 5, 18, 0, 7); ctx.fill();
+      // bases
+      ctx.fillStyle = '#fff';
+      [home, first, second, third].forEach(([x, y]) => { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillRect(-8, -8, 16, 16); ctx.restore(); });
+    },
+    rugby(ctx, W, H) {
+      bg(ctx, W, H, '#0d5c2b', '#159a45'); grassStripes(ctx, W, H, '#0f6a31', '#14893f', 10);
+      frame(ctx, W, H);
+      // in-goal shading + try line near the top
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(8, 8, W - 16, 46);
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(8, 54); ctx.lineTo(W - 8, 54); ctx.stroke();
+      // 22m line (dashed)
+      ctx.setLineDash([7, 7]); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(8, H * 0.52); ctx.lineTo(W - 8, H * 0.52); ctx.stroke();
+      ctx.setLineDash([]);
+      // halfway line (bottom)
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(8, H - 8); ctx.lineTo(W - 8, H - 8); ctx.stroke();
+      // H-shaped goalposts on the try line
+      ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      const cx = W / 2, gw = 44;
+      ctx.beginPath();
+      ctx.moveTo(cx - gw / 2, 74); ctx.lineTo(cx - gw / 2, 30);
+      ctx.moveTo(cx + gw / 2, 74); ctx.lineTo(cx + gw / 2, 30);
+      ctx.moveTo(cx - gw / 2, 44); ctx.lineTo(cx + gw / 2, 44);
+      ctx.stroke(); ctx.lineCap = 'butt';
+    },
+    football(ctx, W, H) {
+      bg(ctx, W, H, '#0d5c2b', '#127a37');
+      for (let i = 0; i < 10; i++) { ctx.fillStyle = i % 2 ? 'rgba(255,255,255,.045)' : 'rgba(0,0,0,.05)'; ctx.fillRect(8 + (W - 16) * i / 10, 8, (W - 16) / 10 + 1, H - 16); }
+      frame(ctx, W, H);
+      // end zone at the top
+      ctx.fillStyle = 'rgba(255,106,0,.30)'; ctx.fillRect(8, 8, W - 16, 58);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(8, 66); ctx.lineTo(W - 8, 66); ctx.stroke();     // goal line
+      // yard lines + hash marks from goal line down to halfway (bottom)
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1;
+      const top = 66, bot = H - 8;
+      for (let i = 1; i <= 5; i++) {
+        const y = top + (bot - top) * i / 5;
+        ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(W - 8, y); ctx.stroke();
+        ctx.beginPath(); for (const hx of [W * 0.36, W * 0.64]) { ctx.moveTo(hx - 5, y); ctx.lineTo(hx + 5, y); } ctx.stroke();
+      }
+      // goalpost at the back of the end zone
+      ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      const cx = W / 2, cross = 30, span = 54;
+      ctx.beginPath();
+      ctx.moveTo(cx, 10); ctx.lineTo(cx, cross);
+      ctx.moveTo(cx - span / 2, cross); ctx.lineTo(cx + span / 2, cross);
+      ctx.moveTo(cx - span / 2, cross); ctx.lineTo(cx - span / 2, cross + 22);
+      ctx.moveTo(cx + span / 2, cross); ctx.lineTo(cx + span / 2, cross + 22);
+      ctx.stroke(); ctx.lineCap = 'butt';
+    },
+    icehockey(ctx, W, H) {
+      const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#eef5fc'); g.addColorStop(1, '#d9e9f8');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      const m = 12, rad = 60;
+      roundRectPath(ctx, m, m, W - 2 * m, H - 2 * m, rad);
+      ctx.strokeStyle = 'rgba(20,50,80,.55)'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.save(); ctx.clip();
+      // goal line near the top
+      ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, 54); ctx.lineTo(W, 54); ctx.stroke();
+      // blue line lower down
+      ctx.strokeStyle = '#1d4ed8'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(0, H * 0.66); ctx.lineTo(W, H * 0.66); ctx.stroke();
+      // centre red line along the bottom (halfway)
+      ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(0, H - 10); ctx.lineTo(W, H - 10); ctx.stroke();
+      ctx.restore();
+      // zone faceoff circles + dots
+      ctx.strokeStyle = '#e11d48'; ctx.fillStyle = '#e11d48'; ctx.lineWidth = 1.5;
+      for (const x of [W / 2 - 120, W / 2 + 120]) {
+        ctx.beginPath(); ctx.arc(x, H * 0.42, 46, 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, H * 0.42, 4, 0, 7); ctx.fill();
+      }
+      // goal crease + net at the top
+      const yb = 54;
+      ctx.fillStyle = 'rgba(29,78,216,.30)'; ctx.beginPath(); ctx.arc(W / 2, yb, 40, 0, Math.PI); ctx.fill();
+      ctx.strokeStyle = '#1d4ed8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(W / 2, yb, 40, 0, Math.PI); ctx.stroke();
+      const gw = 76, gd = 26, gx = W / 2 - gw / 2, gyt = yb - gd;
+      ctx.fillStyle = 'rgba(225,29,72,.20)'; ctx.fillRect(gx, gyt, gw, gd);
+      ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 3; ctx.strokeRect(gx, gyt, gw, gd);
+    },
+    floorball(ctx, W, H) {
+      const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2a6df0'); g.addColorStop(1, '#1f57c9');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      const m = 12, rad = 44;
+      roundRectPath(ctx, m, m, W - 2 * m, H - 2 * m, rad);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.save(); ctx.clip();
+      // halfway line along the bottom + centre arc
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, H - 10); ctx.lineTo(W, H - 10); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W / 2, H - 10, 44, Math.PI, 2 * Math.PI); ctx.stroke();
+      ctx.restore();
+      // goalkeeper area + goal at the top
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+      ctx.strokeRect(W / 2 - 80, 40, 160, 70);
+      ctx.strokeRect(W / 2 - 44, 20, 88, 40);
+      ctx.fillStyle = '#ffd400'; ctx.fillRect(W / 2 - 26, 14, 52, 7);
+    }
+  };
+
   // ---- default formations ----
   function withBallGk(objs, ballY) {
     objs.push({ id: 'gk', kind: 'gk', team: 'def', label: 'GK', x: 50, y: 12 });
@@ -581,6 +772,8 @@ const SPORTS = (() => {
 
   // A generic half-court set (offensive half only) for team sports: the goal or
   // basket sits at the top, defenders near the mid line, attackers spread below.
+  // Coordinates use the full 0–100 range so they map 1:1 onto the half court
+  // canvas (no vertical stretch — players and the ball stay perfectly round).
   function halfFormation(id) {
     const full = formations[id] ? formations[id]() : [];
     const hasGk = full.some(o => o.kind === 'gk');
@@ -594,12 +787,12 @@ const SPORTS = (() => {
       return out;
     };
     const o = [];
-    if (hasGk) o.push({ id: 'gk', kind: 'gk', team: 'def', label: 'GK', x: 50, y: 5, active: false });
+    if (hasGk) o.push({ id: 'gk', kind: 'gk', team: 'def', label: 'GK', x: 50, y: 9, active: false });
     const dxs = spread(def.length, 26, 74);
-    def.forEach((d, i) => o.push({ id: d.id, kind: 'player', team: 'def', label: d.label, x: dxs[i], y: 15 + (i % 2 ? 7 : 0) }));
+    def.forEach((d, i) => o.push({ id: d.id, kind: 'player', team: 'def', label: d.label, x: dxs[i], y: 30 + (i % 2 ? 12 : 0) }));
     const axs = spread(atk.length, 16, 84);
-    atk.forEach((a, i) => o.push({ id: a.id, kind: 'player', team: 'atk', label: a.label, x: axs[i], y: 30 + (i % 3) * 6 }));
-    if (hasBall) o.push({ id: 'ball', kind: 'ball', x: (axs[0] != null ? axs[0] : 50), y: 44 });
+    atk.forEach((a, i) => o.push({ id: a.id, kind: 'player', team: 'atk', label: a.label, x: axs[i], y: 60 + (i % 3) * 10 }));
+    if (hasBall) o.push({ id: 'ball', kind: 'ball', x: (axs[0] != null ? axs[0] : 50), y: 82 });
     return o;
   }
 
@@ -626,9 +819,10 @@ const SPORTS = (() => {
     { id: 'backgammon', name: { en: 'Backgammon', da: 'Backgammon' }, icon: icon('<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M6 4l1.5 6L9 4M10 4l1.5 6L13 4M6 20l1.5-6L9 20M10 20l1.5-6L13 20M15 4v16"/>') }
   ];
 
-  LIST.forEach(s => { s.court = courts[s.id]; s.formation = formations[s.id]; });
+  LIST.forEach(s => { s.court = courts[s.id]; s.formation = formations[s.id]; s.halfCourt = halfCourts[s.id]; });
 
   function get(id) { return LIST.find(s => s.id === id) || LIST[0]; }
+  function halfCourt(id) { return halfCourts[id]; }
   function name(id, lang) { const s = get(id); return (s.name && s.name[lang]) || s.name.en; }
 
   // Playing positions per sport (English keys; translated via i18n 'pos.*').
@@ -704,6 +898,6 @@ const SPORTS = (() => {
   const TEAM_SPORTS = ['handball', 'soccer', 'basketball', 'volleyball', 'baseball', 'rugby', 'football', 'icehockey', 'floorball'];
   function isTeam(id) { return TEAM_SPORTS.indexOf(id) >= 0; }
 
-  return { LIST, get, name, positions, exerciseCategories, oppFormations, isTeam, halfFormation };
+  return { LIST, get, name, positions, exerciseCategories, oppFormations, isTeam, halfFormation, halfCourt };
 })();
 if (typeof window !== 'undefined') window.SPORTS = SPORTS;
